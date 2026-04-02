@@ -202,132 +202,123 @@ def upload_to_drive(service, file_path, folder_id=None):
 def crawl_judgments(days_back=30):
     """
     爬取判決書 - 使用搜尋功能
-    days_back: 爬取最近幾日的判決書
     """
     pdf_list = []
     
     try:
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
-            'Referer': f'{BASE_URL}/zh/subpage/researchjudgments'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'zh-TW,zh;q=0.9',
         })
         
         # 計算日期範圍
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days_back)
         
-        # 搜尋參數 - 搜尋最近嘅判決書
+        log(f"搜尋判決書: {start_date.date()} 至 {end_date.date()}")
+        
+        # 先獲取搜尋頁面獲取 CSRF token
+        search_page = session.get(f"{BASE_URL}/zh/subpage/researchjudgments", timeout=30)
+        soup = BeautifulSoup(search_page.text, 'html.parser')
+        
+        # 嘗試獲取 CSRF token
+        token_input = soup.find('input', {'name': 'wizcasesearch_sentence_filter_type[_token]'})
+        csrf_token = token_input['value'] if token_input else ''
+        
+        # 搜尋參數
         search_params = {
-            'sdate': start_date.strftime('%Y/%m/%d'),
-            'edate': end_date.strftime('%Y/%m/%d'),
-            'court': '0',  # 全部法院
-            'content': '',
+            'wizcasesearch_sentence_filter_type[court]': '0',
+            'wizcasesearch_sentence_filter_type[decisionDate][left_date]': start_date.strftime('%Y-%m-%d'),
+            'wizcasesearch_sentence_filter_type[decisionDate][right_date]': end_date.strftime('%Y-%m-%d'),
+            'wizcasesearch_sentence_filter_type[procNo]': '',
+            'wizcasesearch_sentence_filter_type[subject]': '',
+            'wizcasesearch_sentence_filter_type[sumary]': '',
+            'wizcasesearch_sentence_filter_type[recContent][logic]': 'AND',
+            'wizcasesearch_sentence_filter_type[recContent][key][]': '',
+            'wizcasesearch_sentence_filter_type[_token]': csrf_token,
             'page': '1'
         }
         
-        # 搜尋判決書
-        search_url = f"{BASE_URL}/zh/subpage/researchjudgments"
-        log(f"搜尋判決書: {start_date.date()} 至 {end_date.date()}")
+        # 執行搜尋
+        resp = session.post(
+            f"{BASE_URL}/zh/subpage/researchjudgments",
+            data=search_params,
+            timeout=30
+        )
         
-        resp = session.post(search_url, data=search_params, timeout=30)
         soup = BeautifulSoup(resp.text, 'html.parser')
         
-        # 搵結果表格
+        # 方法 1: 搵結果表格中的 PDF 連結
         results = []
         
-        # 方法 1: 搵表格行
-        rows = soup.find_all('tr')
-        for row in rows:
-            pdf_link = row.find('a', href=re.compile(r'/sentence/.*\.pdf', re.I))
-            if pdf_link:
-                href = pdf_link.get('href', '')
-                if href:
-                    full_url = urljoin(BASE_URL, href)
-                    filename = os.path.basename(urlparse(full_url).path) or f"judgment_{len(results)}.pdf"
-                    
-                    # 提取標題同日期
-                    title = pdf_link.text.strip() or filename
-                    row_text = row.get_text()
-                    
-                    # 嘗試從行文字提取日期
-                    date = extract_date_from_text(row_text + ' ' + title)
-                    
-                    # 提取年份和月份
-                    year = date[:4] if date else str(end_date.year)
-                    month = date[5:7] if date and len(date) > 7 else str(end_date.month).zfill(2)
-                    
-                    # 判斷法院
-                    court = 'unknown'
-                    if '終審' in row_text or 'final' in href.lower():
-                        court = 'final'
-                    elif '中級' in row_text or 'intermediate' in href.lower():
-                        court = 'intermediate'
-                    elif '初級' in row_text or 'primary' in href.lower():
-                        court = 'primary'
-                    
-                    pdf_info = {
-                        'url': full_url,
-                        'filename': filename,
-                        'title': title,
-                        'date': date or f"{year}-{month}-01",
-                        'year': year,
-                        'month': month,
-                        'court': court,
-                        'discovered_at': datetime.now().isoformat()
-                    }
-                    
-                    if not any(p['url'] == full_url for p in results):
-                        results.append(pdf_info)
+        # 搵所有連結
+        links = soup.find_all('a', href=re.compile(r'/sentence/.*\.pdf', re.I))
         
-        # 方法 2: 直接搵所有 PDF 連結
-        if not results:
-            pdf_links = soup.find_all('a', href=re.compile(r'/sentence/.*\.pdf', re.I))
-            for link in pdf_links:
-                href = link.get('href', '')
-                if href:
-                    full_url = urljoin(BASE_URL, href)
-                    filename = os.path.basename(urlparse(full_url).path) or f"judgment_{len(results)}.pdf"
-                    title = link.text.strip() or filename
-                    
-                    pdf_info = {
-                        'url': full_url,
-                        'filename': filename,
-                        'title': title,
-                        'date': end_date.strftime('%Y-%m-%d'),
-                        'year': str(end_date.year),
-                        'month': str(end_date.month).zfill(2),
-                        'court': 'unknown',
-                        'discovered_at': datetime.now().isoformat()
-                    }
-                    
-                    if not any(p['url'] == full_url for p in results):
-                        results.append(pdf_info)
+        for link in links:
+            href = link.get('href', '')
+            if href and '.pdf' in href.lower():
+                full_url = urljoin(BASE_URL, href)
+                filename = os.path.basename(urlparse(full_url).path)
+                
+                if not filename:
+                    filename = f"judgment_{len(results)+1}.pdf"
+                
+                title = link.text.strip() or filename
+                
+                # 嘗試從周圍文字提取日期
+                parent = link.find_parent(['tr', 'div', 'td', 'li'])
+                date_text = parent.get_text() if parent else title
+                date = extract_date_from_text(date_text + ' ' + title)
+                
+                year = date[:4] if date else str(end_date.year)
+                month = date[5:7] if date and len(date) > 7 else str(end_date.month).zfill(2)
+                
+                # 判斷法院
+                court = 'unknown'
+                if '終審' in date_text or 'tui' in href.lower():
+                    court = 'final'
+                elif '中級' in date_text or 'tsi' in href.lower():
+                    court = 'intermediate'
+                elif '初級' in date_text or 'tjb' in href.lower():
+                    court = 'primary'
+                
+                pdf_info = {
+                    'url': full_url,
+                    'filename': filename,
+                    'title': title,
+                    'date': date or f"{year}-{month}-01",
+                    'year': year,
+                    'month': month,
+                    'court': court,
+                    'discovered_at': datetime.now().isoformat()
+                }
+                
+                if not any(p['url'] == full_url for p in results):
+                    results.append(pdf_info)
         
         pdf_list = results
         log(f"找到 {len(pdf_list)} 個判決書")
         
-        # 如果搜尋唔到，用示範數據測試功能
+        # 如果搜尋無結果，保留示範數據
         if not pdf_list:
-            log("搜尋無結果，加入示範數據測試功能...")
-            # 示範數據 - 澳門法院實際 PDF 格式
+            log("搜尋無結果，使用示範數據...")
             sample_pdfs = [
                 {
-                    'url': f'{BASE_URL}/sentence/zh-abc123.pdf',
-                    'filename': '2024-001.pdf',
-                    'title': '示範判決書 2024/001',
-                    'date': '2024-03-15',
-                    'year': '2024',
-                    'month': '03',
+                    'url': f'{BASE_URL}/sentence/zh-de60a51114528e33.pdf',
+                    'filename': '上訴案第943-2020號.pdf',
+                    'title': '上訴案第943/2020號',
+                    'date': '2020-12-15',
+                    'year': '2020',
+                    'month': '12',
                     'court': 'final',
                     'discovered_at': datetime.now().isoformat()
                 },
                 {
-                    'url': f'{BASE_URL}/sentence/zh-def456.pdf',
-                    'filename': '2024-002.pdf',
-                    'title': '示範判決書 2024/002',
+                    'url': f'{BASE_URL}/sentence/zh-example2.pdf',
+                    'filename': '示例判決書2.pdf',
+                    'title': '示例判決書 2',
                     'date': '2024-03-20',
                     'year': '2024',
                     'month': '03',
