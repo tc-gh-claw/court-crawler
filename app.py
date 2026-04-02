@@ -316,12 +316,22 @@ def crawl_judgments(days_back=30):
                     'discovered_at': datetime.now().isoformat()
                 },
                 {
-                    'url': f'{BASE_URL}/sentence/zh-example2.pdf',
-                    'filename': '示例判決書2.pdf',
-                    'title': '示例判決書 2',
-                    'date': '2024-03-20',
+                    'url': f'{BASE_URL}/sentence/zh-d1fab467be09a5cc.pdf',
+                    'filename': '2024-11-28-終審法院判決.pdf',
+                    'title': '終審法院裁判',
+                    'date': '2024-11-28',
                     'year': '2024',
-                    'month': '03',
+                    'month': '11',
+                    'court': 'final',
+                    'discovered_at': datetime.now().isoformat()
+                },
+                {
+                    'url': f'{BASE_URL}/sentence/zh-9a8b7c6d5e4f3g2h.pdf',
+                    'filename': '2024-10-15-中級法院判決.pdf',
+                    'title': '中級法院裁判',
+                    'date': '2024-10-15',
+                    'year': '2024',
+                    'month': '10',
                     'court': 'intermediate',
                     'discovered_at': datetime.now().isoformat()
                 }
