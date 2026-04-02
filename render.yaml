@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: court-crawler
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.4
+      - key: BASE_FOLDER_NAME
+        value: 澳門法院判決書
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+    disk:
+      name: downloads
+      mountPath: /opt/render/project/src/downloads
+      sizeGB: 1

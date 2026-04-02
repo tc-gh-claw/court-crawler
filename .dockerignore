@@ -1,0 +1,33 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv
+venv/
+ENV/
+.git
+.gitignore
+.pytest_cache
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Google API 憑證（不要打包到 Docker）
+credentials.json
+token.json
+
+# 下載的檔案
+downloads/*.pdf
+downloads/**/*.pdf
+judgments_cache.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
