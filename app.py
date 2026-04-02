@@ -48,6 +48,39 @@ download_status = {
     "logs": []
 }
 
+# 已下載記錄（避免重複）
+DOWNLOADED_RECORDS_FILE = Path("downloaded_records.json")
+downloaded_records = set()
+
+def load_downloaded_records():
+    """載入已下載記錄"""
+    global downloaded_records
+    if DOWNLOADED_RECORDS_FILE.exists():
+        try:
+            with open(DOWNLOADED_RECORDS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                downloaded_records = set(data.get('urls', []))
+                log(f"已載入 {len(downloaded_records)} 個已下載記錄")
+        except:
+            downloaded_records = set()
+
+def save_downloaded_records():
+    """儲存已下載記錄"""
+    with open(DOWNLOADED_RECORDS_FILE, 'w', encoding='utf-8') as f:
+        json.dump({'urls': list(downloaded_records)}, f, ensure_ascii=False, indent=2)
+
+def is_downloaded(url):
+    """檢查是否已下載"""
+    return url in downloaded_records
+
+def mark_downloaded(url):
+    """標記為已下載"""
+    downloaded_records.add(url)
+    save_downloaded_records()
+
+# 初始化
+load_downloaded_records()
+
 def log(message):
     """記錄日誌"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -199,9 +232,9 @@ def upload_to_drive(service, file_path, folder_id=None):
     ).execute()
     return file['id']
 
-def crawl_judgments(days_back=30):
+def crawl_all_judgments():
     """
-    爬取判決書 - 使用搜尋功能
+    爬取所有判決書 - 多頁面搜尋
     """
     pdf_list = []
     
@@ -213,95 +246,105 @@ def crawl_judgments(days_back=30):
             'Accept-Language': 'zh-TW,zh;q=0.9',
         })
         
-        # 計算日期範圍
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+        log("開始爬取所有判決書...")
         
-        log(f"搜尋判決書: {start_date.date()} 至 {end_date.date()}")
+        # 搜尋多個年份
+        current_year = datetime.now().year
+        years_to_search = list(range(2020, current_year + 1))  # 2020年到今年
         
-        # 先獲取搜尋頁面獲取 CSRF token
-        search_page = session.get(f"{BASE_URL}/zh/subpage/researchjudgments", timeout=30)
-        soup = BeautifulSoup(search_page.text, 'html.parser')
+        for year in years_to_search:
+            log(f"搜尋 {year} 年的判決書...")
+            
+            # 先獲取搜尋頁面獲取 CSRF token
+            search_page = session.get(f"{BASE_URL}/zh/subpage/researchjudgments", timeout=30)
+            soup = BeautifulSoup(search_page.text, 'html.parser')
+            
+            # 獲取 CSRF token
+            token_input = soup.find('input', {'name': 'wizcasesearch_sentence_filter_type[_token]'})
+            csrf_token = token_input['value'] if token_input else ''
+            
+            # 搜尋參數 - 按年份搜尋
+            search_params = {
+                'wizcasesearch_sentence_filter_type[court]': '0',
+                'wizcasesearch_sentence_filter_type[decisionDate][left_date]': f'{year}-01-01',
+                'wizcasesearch_sentence_filter_type[decisionDate][right_date]': f'{year}-12-31',
+                'wizcasesearch_sentence_filter_type[procNo]': '',
+                'wizcasesearch_sentence_filter_type[subject]': '',
+                'wizcasesearch_sentence_filter_type[sumary]': '',
+                'wizcasesearch_sentence_filter_type[recContent][logic]': 'AND',
+                'wizcasesearch_sentence_filter_type[recContent][key][]': '',
+                'wizcasesearch_sentence_filter_type[_token]': csrf_token,
+                'page': '1'
+            }
+            
+            # 執行搜尋
+            resp = session.post(
+                f"{BASE_URL}/zh/subpage/researchjudgments",
+                data=search_params,
+                timeout=30
+            )
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            # 搵所有 PDF 連結
+            links = soup.find_all('a', href=re.compile(r'/sentence/.*\.pdf', re.I))
+            
+            year_count = 0
+            for link in links:
+                href = link.get('href', '')
+                if href and '.pdf' in href.lower():
+                    full_url = urljoin(BASE_URL, href)
+                    
+                    # 檢查是否已下載
+                    if is_downloaded(full_url):
+                        continue
+                    
+                    filename = os.path.basename(urlparse(full_url).path)
+                    if not filename:
+                        filename = f"judgment_{year}_{len(pdf_list)+1}.pdf"
+                    
+                    title = link.text.strip() or filename
+                    
+                    # 從周圍文字提取日期
+                    parent = link.find_parent(['tr', 'div', 'td', 'li'])
+                    date_text = parent.get_text() if parent else title
+                    date = extract_date_from_text(date_text + ' ' + title)
+                    
+                    if not date:
+                        date = f"{year}-01-01"
+                    
+                    # 判斷法院
+                    court = 'unknown'
+                    if '終審' in date_text or 'tui' in href.lower():
+                        court = 'final'
+                    elif '中級' in date_text or 'tsi' in href.lower():
+                        court = 'intermediate'
+                    elif '初級' in date_text or 'tjb' in href.lower():
+                        court = 'primary'
+                    
+                    pdf_info = {
+                        'url': full_url,
+                        'filename': filename,
+                        'title': title,
+                        'date': date,
+                        'year': date[:4],
+                        'month': date[5:7] if len(date) > 7 else '01',
+                        'court': court,
+                        'discovered_at': datetime.now().isoformat()
+                    }
+                    
+                    if not any(p['url'] == full_url for p in pdf_list):
+                        pdf_list.append(pdf_info)
+                        year_count += 1
+            
+            log(f"{year} 年找到 {year_count} 個新判決書")
+            
+            # 避免請求過快
+            time.sleep(2)
         
-        # 嘗試獲取 CSRF token
-        token_input = soup.find('input', {'name': 'wizcasesearch_sentence_filter_type[_token]'})
-        csrf_token = token_input['value'] if token_input else ''
+        log(f"總共找到 {len(pdf_list)} 個新判決書")
         
-        # 搜尋參數
-        search_params = {
-            'wizcasesearch_sentence_filter_type[court]': '0',
-            'wizcasesearch_sentence_filter_type[decisionDate][left_date]': start_date.strftime('%Y-%m-%d'),
-            'wizcasesearch_sentence_filter_type[decisionDate][right_date]': end_date.strftime('%Y-%m-%d'),
-            'wizcasesearch_sentence_filter_type[procNo]': '',
-            'wizcasesearch_sentence_filter_type[subject]': '',
-            'wizcasesearch_sentence_filter_type[sumary]': '',
-            'wizcasesearch_sentence_filter_type[recContent][logic]': 'AND',
-            'wizcasesearch_sentence_filter_type[recContent][key][]': '',
-            'wizcasesearch_sentence_filter_type[_token]': csrf_token,
-            'page': '1'
-        }
-        
-        # 執行搜尋
-        resp = session.post(
-            f"{BASE_URL}/zh/subpage/researchjudgments",
-            data=search_params,
-            timeout=30
-        )
-        
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        
-        # 方法 1: 搵結果表格中的 PDF 連結
-        results = []
-        
-        # 搵所有連結
-        links = soup.find_all('a', href=re.compile(r'/sentence/.*\.pdf', re.I))
-        
-        for link in links:
-            href = link.get('href', '')
-            if href and '.pdf' in href.lower():
-                full_url = urljoin(BASE_URL, href)
-                filename = os.path.basename(urlparse(full_url).path)
-                
-                if not filename:
-                    filename = f"judgment_{len(results)+1}.pdf"
-                
-                title = link.text.strip() or filename
-                
-                # 嘗試從周圍文字提取日期
-                parent = link.find_parent(['tr', 'div', 'td', 'li'])
-                date_text = parent.get_text() if parent else title
-                date = extract_date_from_text(date_text + ' ' + title)
-                
-                year = date[:4] if date else str(end_date.year)
-                month = date[5:7] if date and len(date) > 7 else str(end_date.month).zfill(2)
-                
-                # 判斷法院
-                court = 'unknown'
-                if '終審' in date_text or 'tui' in href.lower():
-                    court = 'final'
-                elif '中級' in date_text or 'tsi' in href.lower():
-                    court = 'intermediate'
-                elif '初級' in date_text or 'tjb' in href.lower():
-                    court = 'primary'
-                
-                pdf_info = {
-                    'url': full_url,
-                    'filename': filename,
-                    'title': title,
-                    'date': date or f"{year}-{month}-01",
-                    'year': year,
-                    'month': month,
-                    'court': court,
-                    'discovered_at': datetime.now().isoformat()
-                }
-                
-                if not any(p['url'] == full_url for p in results):
-                    results.append(pdf_info)
-        
-        pdf_list = results
-        log(f"找到 {len(pdf_list)} 個判決書")
-        
-        # 如果搜尋無結果，保留示範數據
+        # 如果搜尋無結果，使用示範數據
         if not pdf_list:
             log("搜尋無結果，使用示範數據...")
             sample_pdfs = [
@@ -324,19 +367,9 @@ def crawl_judgments(days_back=30):
                     'month': '11',
                     'court': 'final',
                     'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-9a8b7c6d5e4f3g2h.pdf',
-                    'filename': '2024-10-15-中級法院判決.pdf',
-                    'title': '中級法院裁判',
-                    'date': '2024-10-15',
-                    'year': '2024',
-                    'month': '10',
-                    'court': 'intermediate',
-                    'discovered_at': datetime.now().isoformat()
                 }
             ]
-            pdf_list = sample_pdfs
+            pdf_list = [p for p in sample_pdfs if not is_downloaded(p['url'])]
             log(f"使用 {len(pdf_list)} 個示範數據")
         
     except Exception as e:
@@ -510,6 +543,7 @@ def process_downloads(pdf_list, upload_to_gdrive=True, base_folder_name="澳門�
     
     # 下載同上傳
     success_count = 0
+    skipped_count = 0
     for date_key, pdfs in date_groups.items():
         log(f"處理 {date_key} 的 {len(pdfs)} 個檔案...")
         
@@ -523,12 +557,20 @@ def process_downloads(pdf_list, upload_to_gdrive=True, base_folder_name="澳門�
                 break
             
             download_status["current"] += 1
+            
+            # 檢查是否已下載
+            if is_downloaded(pdf['url']):
+                log(f"跳過（已下載）: {pdf['filename']}")
+                skipped_count += 1
+                continue
+            
             download_status["message"] = f"下載 {pdf['filename']}..."
             
             # 下載
             save_path = date_dir / pdf['filename']
             if download_pdf(pdf['url'], save_path):
                 success_count += 1
+                mark_downloaded(pdf['url'])  # 標記為已下載
                 
                 # 上傳到 Google Drive
                 if drive_service and date_key in date_folders:
@@ -541,8 +583,8 @@ def process_downloads(pdf_list, upload_to_gdrive=True, base_folder_name="澳門�
             download_status["message"] = f"完成 {download_status['current']}/{download_status['total']}"
     
     download_status["running"] = False
-    download_status["message"] = f"完成！成功 {success_count}/{download_status['total']}"
-    log(f"全部完成！成功下載 {success_count} 個檔案")
+    download_status["message"] = f"完成！成功 {success_count} 個，跳過 {skipped_count} 個"
+    log(f"全部完成！成功下載 {success_count} 個，跳過 {skipped_count} 個已存在檔案")
 
 # ============ Flask 路由 ============
 
@@ -555,10 +597,14 @@ def api_crawl():
     """手動觸發爬蟲"""
     data = request.json or {}
     days_back = data.get('days_back', 30)
+    crawl_all = data.get('crawl_all', False)  # 新增：是否爬取所有
     
     # 在背景執行爬蟲
     def do_crawl():
-        pdfs = crawl_judgments(days_back)
+        if crawl_all:
+            pdfs = crawl_all_judgments()  # 爬取所有
+        else:
+            pdfs = crawl_judgments(days_back)  # 爬取近期
         cache_data['pdfs'] = pdfs
         cache_data['last_update'] = datetime.now().isoformat()
         save_cache()
@@ -569,6 +615,28 @@ def api_crawl():
     thread.start()
     
     return jsonify({'status': 'crawling_started'})
+
+@app.route('/api/crawl-all', methods=['POST'])
+def api_crawl_all():
+    """爬取所有判決書（多年份）"""
+    
+    def do_crawl_all():
+        pdfs = crawl_all_judgments()
+        cache_data['pdfs'] = pdfs
+        cache_data['last_update'] = datetime.now().isoformat()
+        save_cache()
+        log(f"全部爬蟲完成，找到 {len(pdfs)} 個判決書")
+        
+        # 自動開始下載
+        if pdfs:
+            log("自動開始下載...")
+            process_downloads(pdfs, upload_to_gdrive=True)
+    
+    thread = threading.Thread(target=do_crawl_all)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'status': 'crawl_all_started'})
 
 @app.route('/api/search', methods=['POST'])
 def api_search():
@@ -643,6 +711,14 @@ def api_status():
 @app.route('/api/logs')
 def api_logs():
     return jsonify({'logs': download_status['logs']})
+
+@app.route('/api/downloaded')
+def api_downloaded():
+    """獲取已下載記錄"""
+    return jsonify({
+        'count': len(downloaded_records),
+        'urls': list(downloaded_records)
+    })
 
 @app.route('/api/export')
 def api_export():
