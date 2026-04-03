@@ -234,205 +234,46 @@ def upload_to_drive(service, file_path, folder_id=None):
 
 def crawl_all_judgments():
     """
-    爬取所有判決書 - 多頁面搜尋
+    爬取所有判決書 - 使用改進的核心爬蟲
+    支援多法院、多年份、多分頁
     """
+    from crawler_core import CourtCrawler, COURT_MAP
+    
     pdf_list = []
     
     try:
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'zh-TW,zh;q=0.9',
-        })
+        log("開始爬取所有判決書 (改進版)...")
         
-        log("開始爬取所有判決書...")
+        # 使用新的核心爬蟲
+        crawler = CourtCrawler()
         
-        # 搜尋多個年份
+        # 搜尋多個年份（2020-今年）
         current_year = datetime.now().year
-        years_to_search = list(range(2020, current_year + 1))  # 2020年到今年
+        years = list(range(2020, current_year + 1))
         
-        for year in years_to_search:
-            log(f"搜尋 {year} 年的判決書...")
-            
-            # 先獲取搜尋頁面獲取 CSRF token
-            search_page = session.get(f"{BASE_URL}/zh/subpage/researchjudgments", timeout=30)
-            soup = BeautifulSoup(search_page.text, 'html.parser')
-            
-            # 獲取 CSRF token
-            token_input = soup.find('input', {'name': 'wizcasesearch_sentence_filter_type[_token]'})
-            csrf_token = token_input['value'] if token_input else ''
-            
-            # 搜尋參數 - 按年份搜尋
-            search_params = {
-                'wizcasesearch_sentence_filter_type[court]': '0',
-                'wizcasesearch_sentence_filter_type[decisionDate][left_date]': f'{year}-01-01',
-                'wizcasesearch_sentence_filter_type[decisionDate][right_date]': f'{year}-12-31',
-                'wizcasesearch_sentence_filter_type[procNo]': '',
-                'wizcasesearch_sentence_filter_type[subject]': '',
-                'wizcasesearch_sentence_filter_type[sumary]': '',
-                'wizcasesearch_sentence_filter_type[recContent][logic]': 'AND',
-                'wizcasesearch_sentence_filter_type[recContent][key][]': '',
-                'wizcasesearch_sentence_filter_type[_token]': csrf_token,
-                'page': '1'
-            }
-            
-            # 執行搜尋
-            resp = session.post(
-                f"{BASE_URL}/zh/subpage/researchjudgments",
-                data=search_params,
-                timeout=30
-            )
-            
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            # 搵所有 PDF 連結
-            links = soup.find_all('a', href=re.compile(r'/sentence/.*\.pdf', re.I))
-            
-            year_count = 0
-            for link in links:
-                href = link.get('href', '')
-                if href and '.pdf' in href.lower():
-                    full_url = urljoin(BASE_URL, href)
+        # 搜尋所有法院
+        courts = ['tui', 'tsi', 'tjb', 'ta']  # 終審、中級、初級、行政
+        
+        for year in years:
+            for court_code in courts:
+                court_name = COURT_MAP.get(court_code, (court_code, court_code))[1]
+                log(f"搜尋 {year} 年 {court_name}...")
+                
+                try:
+                    # 爬取該年份和法院的所有判決書
+                    pdfs = crawler.crawl_year_court(year, court_code, delay=1)
                     
-                    # 檢查是否已下載
-                    if is_downloaded(full_url):
-                        continue
+                    # 過濾已下載的
+                    new_pdfs = [p for p in pdfs if not is_downloaded(p['url'])]
                     
-                    filename = os.path.basename(urlparse(full_url).path)
-                    if not filename:
-                        filename = f"judgment_{year}_{len(pdf_list)+1}.pdf"
+                    pdf_list.extend(new_pdfs)
+                    log(f"  {year}年 {court_name}: 找到 {len(pdfs)} 個，新增 {len(new_pdfs)} 個")
                     
-                    title = link.text.strip() or filename
-                    
-                    # 從周圍文字提取日期
-                    parent = link.find_parent(['tr', 'div', 'td', 'li'])
-                    date_text = parent.get_text() if parent else title
-                    date = extract_date_from_text(date_text + ' ' + title)
-                    
-                    if not date:
-                        date = f"{year}-01-01"
-                    
-                    # 判斷法院
-                    court = 'unknown'
-                    if '終審' in date_text or 'tui' in href.lower():
-                        court = 'final'
-                    elif '中級' in date_text or 'tsi' in href.lower():
-                        court = 'intermediate'
-                    elif '初級' in date_text or 'tjb' in href.lower():
-                        court = 'primary'
-                    
-                    pdf_info = {
-                        'url': full_url,
-                        'filename': filename,
-                        'title': title,
-                        'date': date,
-                        'year': date[:4],
-                        'month': date[5:7] if len(date) > 7 else '01',
-                        'court': court,
-                        'discovered_at': datetime.now().isoformat()
-                    }
-                    
-                    if not any(p['url'] == full_url for p in pdf_list):
-                        pdf_list.append(pdf_info)
-                        year_count += 1
-            
-            log(f"{year} 年找到 {year_count} 個新判決書")
-            
-            # 避免請求過快
-            time.sleep(2)
+                except Exception as e:
+                    log(f"  錯誤: {e}")
+                    continue
         
         log(f"總共找到 {len(pdf_list)} 個新判決書")
-        
-        # 如果搜尋無結果，使用真實判決書列表
-        if not pdf_list:
-            log("搜尋無結果，使用真實判決書列表...")
-            # 這些係真實存在嘅澳門法院判決書
-            real_judgments = [
-                {
-                    'url': f'{BASE_URL}/sentence/zh-de60a51114528e33.pdf',
-                    'filename': '上訴案第943-2020號.pdf',
-                    'title': '上訴案第943/2020號',
-                    'date': '2020-12-15',
-                    'year': '2020',
-                    'month': '12',
-                    'court': 'final',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-d1fab467be09a5cc.pdf',
-                    'filename': '2024-11-28-終審法院判決.pdf',
-                    'title': '終審法院裁判',
-                    'date': '2024-11-28',
-                    'year': '2024',
-                    'month': '11',
-                    'court': 'final',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-046f73938132dc01.pdf',
-                    'filename': '上訴案第432-2024號.pdf',
-                    'title': '上訴案第432/2024號',
-                    'date': '2025-12-04',
-                    'year': '2025',
-                    'month': '12',
-                    'court': 'intermediate',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-bb9a9f38fde2adfc.pdf',
-                    'filename': '2025-11-27-終審法院判決.pdf',
-                    'title': '終審法院裁判',
-                    'date': '2025-11-27',
-                    'year': '2025',
-                    'month': '11',
-                    'court': 'final',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-947dc815a1467015.pdf',
-                    'filename': '第54-2025號案.pdf',
-                    'title': '第54/2025號案（刑事上訴）',
-                    'date': '2025-01-22',
-                    'year': '2025',
-                    'month': '01',
-                    'court': 'final',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-68e2d331a78ada24.pdf',
-                    'filename': '民事上訴第787-2023號.pdf',
-                    'title': '民事上訴卷宗第787/2023號',
-                    'date': '2024-05-09',
-                    'year': '2024',
-                    'month': '05',
-                    'court': 'intermediate',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-6e7eb2418b06f5bc.pdf',
-                    'filename': '裁判審查第443-2024號.pdf',
-                    'title': '裁判審查及確認卷宗第443/2024號',
-                    'date': '2024-01-01',
-                    'year': '2024',
-                    'month': '01',
-                    'court': 'intermediate',
-                    'discovered_at': datetime.now().isoformat()
-                },
-                {
-                    'url': f'{BASE_URL}/sentence/zh-7f930c828380b7a7.pdf',
-                    'filename': '第421-2025號.pdf',
-                    'title': '第421/2025號（再審上訴）',
-                    'date': '2025-01-22',
-                    'year': '2025',
-                    'month': '01',
-                    'court': 'primary',
-                    'discovered_at': datetime.now().isoformat()
-                }
-            ]
-            # 只加入未下載的
-            pdf_list = [p for p in real_judgments if not is_downloaded(p['url'])]
-            log(f"找到 {len(pdf_list)} 個未下載的真實判決書")
         
     except Exception as e:
         log(f"爬取失敗: {e}")
