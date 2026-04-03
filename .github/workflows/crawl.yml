@@ -1,0 +1,31 @@
+name: 一鍵爬蟲
+
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: '年份範圍 (例如: 2020-2025)'
+        default: '2020-2025'
+      courts:
+        description: '法院 (tui=終審,tsi=中級,tjb=初級,ta=行政)'
+        default: 'all'
+  
+  schedule:
+    - cron: '0 9 * * 1'
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install -r requirements.txt
+    - run: |
+        python -c "
+from crawler_core import CourtCrawler
+crawler = CourtCrawler()
+results = crawler.crawl_all(years=[2025], courts=['tui', 'tsi'])
+print(f'找到 {len(results)} 個判決書')
+"
