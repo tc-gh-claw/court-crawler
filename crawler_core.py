@@ -64,24 +64,31 @@ class CourtCrawler:
         if not date_to:
             date_to = f"{datetime.now().year}-12-31"
         
-        search_params = {
-            'wizcasesearch_sentence_filter_type[court]': court,
-            'wizcasesearch_sentence_filter_type[decisionDate][left_date]': date_from,
-            'wizcasesearch_sentence_filter_type[decisionDate][right_date]': date_to,
-            'wizcasesearch_sentence_filter_type[procNo]': '',
-            'wizcasesearch_sentence_filter_type[subject]': '',
-            'wizcasesearch_sentence_filter_type[sumary]': '',
-            'wizcasesearch_sentence_filter_type[recContent][logic]': 'AND',
-            'wizcasesearch_sentence_filter_type[recContent][key][]': '',
-            'wizcasesearch_sentence_filter_type[_token]': self.csrf_token,
-            'page': str(page)
-        }
-        
-        resp = self.session.post(
-            f"{BASE_URL}/zh/subpage/researchjudgments",
-            data=search_params,
-            timeout=30
-        )
+        # 第一頁用 POST (搜尋表單)
+        if page == 1:
+            search_params = {
+                'wizcasesearch_sentence_filter_type[court]': court,
+                'wizcasesearch_sentence_filter_type[decisionDate][left_date]': date_from,
+                'wizcasesearch_sentence_filter_type[decisionDate][right_date]': date_to,
+                'wizcasesearch_sentence_filter_type[procNo]': '',
+                'wizcasesearch_sentence_filter_type[subject]': '',
+                'wizcasesearch_sentence_filter_type[sumary]': '',
+                'wizcasesearch_sentence_filter_type[recContent][logic]': 'AND',
+                'wizcasesearch_sentence_filter_type[recContent][key][]': '',
+                'wizcasesearch_sentence_filter_type[_token]': self.csrf_token,
+            }
+            
+            resp = self.session.post(
+                f"{BASE_URL}/zh/subpage/researchjudgments",
+                data=search_params,
+                timeout=30
+            )
+        else:
+            # 第2頁起用 GET + URL 參數 (分頁連結)
+            resp = self.session.get(
+                f"{BASE_URL}/zh/subpage/researchjudgments?page={page}",
+                timeout=30
+            )
         
         return resp.text
     
@@ -211,6 +218,7 @@ class CourtCrawler:
     def crawl_year_court(self, year, court, delay=1):
         """
         爬取特定年份和法院的所有判決書
+        策略：按月搜尋，因為每年最多返回10個結果
         
         Args:
             year: 年份
@@ -222,48 +230,40 @@ class CourtCrawler:
         """
         all_pdfs = []
         seen_keys = set()
+        court_name = COURT_MAP.get(court, (court, court))[1]
         
         try:
-            # 第一頁
-            html = self.search_judgments(
-                court=court,
-                date_from=f"{year}-01-01",
-                date_to=f"{year}-12-31",
-                page=1
-            )
-            
-            pdfs = self.parse_judgments(html, court)
-            total_pages = self.get_total_pages(html)
-            
-            court_name = COURT_MAP.get(court, (court, court))[1]
-            print(f"  {year}年 {court_name}: 第1頁/{total_pages}頁, 找到{len(pdfs)}個")
-            
-            for pdf in pdfs:
-                key = f"{pdf['date']}_{pdf['case_number']}"
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    all_pdfs.append(pdf)
-            
-            # 其他頁
-            for page in range(2, total_pages + 1):
-                time.sleep(delay)
+            # 按月搜尋 (1-12月)
+            for month in range(1, 13):
+                month_str = f"{month:02d}"
+                date_from = f"{year}-{month_str}-01"
+                # 簡化處理，每月都用到28日足夠
+                date_to = f"{year}-{month_str}-28"
                 
                 html = self.search_judgments(
                     court=court,
-                    date_from=f"{year}-01-01",
-                    date_to=f"{year}-12-31",
-                    page=page
+                    date_from=date_from,
+                    date_to=date_to,
+                    page=1
                 )
                 
                 pdfs = self.parse_judgments(html, court)
-                print(f"  {year}年 {court_name}: 第{page}頁/{total_pages}頁, 找到{len(pdfs)}個")
                 
+                new_count = 0
                 for pdf in pdfs:
                     key = f"{pdf['date']}_{pdf['case_number']}"
                     if key not in seen_keys:
                         seen_keys.add(key)
                         all_pdfs.append(pdf)
-        
+                        new_count += 1
+                
+                if new_count > 0:
+                    print(f"  {year}年{month_str}月 {court_name}: {new_count}個新判決書")
+                
+                time.sleep(delay)
+            
+            print(f"  {year}年 {court_name}: 總計{len(all_pdfs)}個")
+                
         except Exception as e:
             print(f"  錯誤: {e}")
         
