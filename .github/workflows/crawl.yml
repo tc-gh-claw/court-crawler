@@ -5,9 +5,11 @@ on:
     inputs:
       years:
         description: '年份範圍 (例如: 2020-2025)'
+        required: false
         default: '2020-2025'
       courts:
-        description: '法院 (tui=終審,tsi=中級,tjb=初級,ta=行政)'
+        description: '法院 (tui=終審,tsi=中級,tjb=初級,ta=行政,all=全部)'
+        required: false
         default: 'all'
   
   schedule:
@@ -16,16 +18,42 @@ on:
 jobs:
   crawl:
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - name: 檢出代碼
+      uses: actions/checkout@v4
+      
+    - name: 設置 Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - run: pip install -r requirements.txt
-    - run: |
-        python -c "
-from crawler_core import CourtCrawler
-crawler = CourtCrawler()
-results = crawler.crawl_all(years=[2025], courts=['tui', 'tsi'])
-print(f'找到 {len(results)} 個判決書')
-"
+        
+    - name: 安裝依賴
+      run: pip install -r requirements.txt
+        
+    - name: 運行爬蟲
+      env:
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        INPUT_YEARS: ${{ github.event.inputs.years || '2020-2025' }}
+        INPUT_COURTS: ${{ github.event.inputs.courts || 'all' }}
+      run: python crawl_script.py
+      
+    - name: 上傳結果
+      uses: actions/upload-artifact@v4
+      with:
+        name: crawl-results
+        path: crawl_results.json
+        retention-days: 30
+        
+    - name: 更新快取
+      run: python update_cache.py
+        
+    - name: 提交快取更新
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add judgments_cache.json
+        git diff --cached --quiet || git commit -m "Update crawl cache - $(date +'%Y-%m-%d')"
+        git push
