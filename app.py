@@ -1,637 +1,523 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-澳門法院判決書爬蟲 - 進階網頁版
-支援日曆視圖、日期分類、部署就緒
+MediaMind - AI-style audio/video knowledge assistant.
+
+This app intentionally avoids copying any third-party product branding or UI.
+It provides a self-contained MVP inspired by common media-summarization flows:
+link/upload input, structured notes, transcript, mind map, chat, and export.
 """
 
+import hashlib
+import json
 import os
 import re
-import time
-import json
-import base64
-import threading
-from datetime import datetime, timedelta
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
-from collections import defaultdict
+from typing import Dict, Iterable, List, Optional
+from urllib.parse import urlparse
 
-import requests
-from bs4 import BeautifulSoup
-from flask import Flask, render_template, jsonify, request, send_file
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from dateutil import parser as date_parser
-
-# ============ 設定 ============
-DOWNLOAD_DIR = Path("downloads")
-DOWNLOAD_DIR.mkdir(exist_ok=True)
-SCOPES = ['https://www.googleapis.com/auth/drive']
-BASE_URL = "https://www.court.gov.mo"
-SENTENCE_URL = f"{BASE_URL}/sentence/"
-
-# 快取設定
-CACHE_FILE = Path("judgments_cache.json")
-cache_data = {"pdfs": [], "last_update": None}
+from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 
-# 儲存下載狀態
-download_status = {
-    "running": False,
-    "total": 0,
-    "current": 0,
-    "message": "",
-    "logs": []
+ANALYSIS_DIR = Path("analysis_cache")
+ANALYSIS_DIR.mkdir(exist_ok=True)
+
+SUPPORTED_TEXT_EXTENSIONS = {".txt", ".md", ".srt", ".vtt", ".json", ".csv"}
+
+STOPWORDS = {
+    "about",
+    "after",
+    "again",
+    "also",
+    "and",
+    "are",
+    "because",
+    "been",
+    "before",
+    "but",
+    "can",
+    "could",
+    "does",
+    "each",
+    "from",
+    "has",
+    "have",
+    "how",
+    "into",
+    "just",
+    "more",
+    "most",
+    "not",
+    "now",
+    "our",
+    "out",
+    "over",
+    "should",
+    "some",
+    "than",
+    "that",
+    "the",
+    "their",
+    "then",
+    "there",
+    "these",
+    "they",
+    "this",
+    "through",
+    "use",
+    "was",
+    "what",
+    "when",
+    "where",
+    "which",
+    "while",
+    "with",
+    "you",
+    "your",
+    "一個",
+    "以及",
+    "可以",
+    "因此",
+    "如果",
+    "我們",
+    "或者",
+    "這個",
+    "這些",
+    "需要",
 }
 
-# 已下載記錄（避免重複）
-DOWNLOADED_RECORDS_FILE = Path("downloaded_records.json")
-downloaded_records = set()
+PLATFORM_PATTERNS = [
+    ("YouTube", re.compile(r"(youtube\.com|youtu\.be)", re.I)),
+    ("Bilibili", re.compile(r"bilibili\.com", re.I)),
+    ("TikTok", re.compile(r"tiktok\.com", re.I)),
+    ("X / Twitter", re.compile(r"(twitter\.com|x\.com)", re.I)),
+    ("Podcast", re.compile(r"(podcast|spotify\.com|xiaoyuzhoufm|apple\.com/.+podcast)", re.I)),
+    ("Course", re.compile(r"(coursera|ted\.com|udemy|edx)", re.I)),
+]
 
-def load_downloaded_records():
-    """載入已下載記錄"""
-    global downloaded_records
-    if DOWNLOADED_RECORDS_FILE.exists():
-        try:
-            with open(DOWNLOADED_RECORDS_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                downloaded_records = set(data.get('urls', []))
-                log(f"已載入 {len(downloaded_records)} 個已下載記錄")
-        except:
-            downloaded_records = set()
 
-def save_downloaded_records():
-    """儲存已下載記錄"""
-    with open(DOWNLOADED_RECORDS_FILE, 'w', encoding='utf-8') as f:
-        json.dump({'urls': list(downloaded_records)}, f, ensure_ascii=False, indent=2)
+def normalise_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
 
-def is_downloaded(url):
-    """檢查是否已下載"""
-    return url in downloaded_records
 
-def mark_downloaded(url):
-    """標記為已下載"""
-    downloaded_records.add(url)
-    save_downloaded_records()
+def strip_subtitle_markup(text: str) -> str:
+    """Remove common VTT/SRT cue metadata while keeping spoken lines."""
+    cleaned_lines = []
+    for raw_line in (text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.upper() == "WEBVTT":
+            continue
+        if re.fullmatch(r"\d+", line):
+            continue
+        if re.search(r"\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s+-->\s+\d{1,2}:\d{2}:\d{2}", line):
+            continue
+        cleaned_lines.append(re.sub(r"<[^>]+>", "", line))
+    return normalise_whitespace(" ".join(cleaned_lines))
 
-# 初始化
-load_downloaded_records()
 
-def log(message):
-    """記錄日誌"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = f"[{timestamp}] {message}"
-    download_status["logs"].append(log_entry)
-    print(log_entry)
-
-def load_cache():
-    """載入快取"""
-    global cache_data
-    if CACHE_FILE.exists():
-        try:
-            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                cache_data = json.load(f)
-        except:
-            pass
-
-def save_cache():
-    """儲存快取"""
-    with open(CACHE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(cache_data, f, ensure_ascii=False, indent=2)
-
-def extract_date_from_text(text):
-    """
-    從文字中提取日期
-    支援多種格式：2024/01/15, 2024年1月15日, 15/01/2024 等
-    """
+def split_sentences(text: str) -> List[str]:
+    text = normalise_whitespace(text)
     if not text:
-        return None
-    
-    # 常見日期格式
-    patterns = [
-        # 2024/01/15 或 2024-01-15
-        r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',
-        # 2024年1月15日
-        r'(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日',
-        # 15/01/2024 或 15-01-2024
-        r'(\d{1,2})[/-](\d{1,2})[/-](\d{4})',
-        # 案件編號中的日期，如 2024/001
-        r'案件.*?[^\d](\d{4})[^\d]',
-        # 案號中的年份
-        r'案[件號].*?(\d{4})',
-    ]
-    
-    for pattern in patterns:
-        matches = re.findall(pattern, text)
-        for match in matches:
-            if isinstance(match, tuple):
-                # 判斷是 YMD 還是 DMY
-                first = int(match[0])
-                if first > 1900:  # YMD
-                    year, month, day = first, int(match[1]), int(match[2])
-                else:  # DMY
-                    day, month, year = first, int(match[1]), int(match[2])
-            else:
-                year = int(match)
-                month = day = 1
-            
-            # 驗證日期合理性
-            if 1999 <= year <= datetime.now().year and 1 <= month <= 12 and 1 <= day <= 31:
-                try:
-                    return datetime(year, month, day).strftime('%Y-%m-%d')
-                except:
-                    continue
-    
-    # 嘗試搵只有年份
-    year_match = re.search(r'(19|20)\d{2}', text)
-    if year_match:
-        year = int(year_match.group(0))
-        if 1999 <= year <= datetime.now().year:
-            return f"{year}-01-01"
-    
-    return None
+        return []
 
-def get_drive_service():
-    """取得 Google Drive API 服務
-    支援本地開發（credentials.json + OAuth 流程）
-    及雲端部署（環境變數 + Refresh Token）
-    """
-    creds = None
-    
-    # 方法 1: 雲端部署 - 使用環境變數
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-    refresh_token = os.environ.get('GOOGLE_REFRESH_TOKEN')
-    
-    if client_id and client_secret and refresh_token:
+    pieces = re.split(r"(?<=[.!?。！？])\s+", text)
+    sentences = [piece.strip(" -") for piece in pieces if len(piece.strip(" -")) > 0]
+    if len(sentences) <= 1 and len(text) > 220:
+        sentences = [text[i : i + 180].strip() for i in range(0, len(text), 180)]
+    return sentences
+
+
+def infer_platform(url: str) -> str:
+    if not url:
+        return "Local upload"
+    for name, pattern in PLATFORM_PATTERNS:
+        if pattern.search(url):
+            return name
+    parsed = urlparse(url)
+    return parsed.netloc.replace("www.", "") if parsed.netloc else "Web link"
+
+
+def title_from_url(url: str) -> str:
+    parsed = urlparse(url or "")
+    path = parsed.path.strip("/")
+    if not path:
+        return parsed.netloc or "Untitled media"
+    candidate = path.split("/")[-1]
+    candidate = re.sub(r"[-_]+", " ", candidate)
+    candidate = re.sub(r"\.\w+$", "", candidate)
+    return candidate[:80].strip().title() or parsed.netloc or "Untitled media"
+
+
+def read_uploaded_text(upload) -> Dict[str, str]:
+    if not upload or not upload.filename:
+        return {"filename": "", "text": "", "note": ""}
+
+    filename = upload.filename
+    extension = Path(filename).suffix.lower()
+    payload = upload.read()
+
+    if extension not in SUPPORTED_TEXT_EXTENSIONS:
+        return {
+            "filename": filename,
+            "text": "",
+            "note": (
+                "The file was received, but this MVP only extracts text from "
+                "TXT, MD, SRT, VTT, JSON, and CSV files. Add a speech-to-text "
+                "service to process raw audio/video binaries."
+            ),
+        }
+
+    for encoding in ("utf-8", "utf-16", "latin-1"):
         try:
-            creds = Credentials(
-                None,  # token 會自動用 refresh_token 取得
-                refresh_token=refresh_token,
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=client_id,
-                client_secret=client_secret,
-                scopes=SCOPES
-            )
-            creds.refresh(Request())
-            return build('drive', 'v3', credentials=creds)
-        except Exception as e:
-            log(f"使用環境變數連接 Drive 失敗: {e}")
-            return None
-    
-    # 方法 2: 本地開發 - 使用 credentials.json
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists('credentials.json'):
-                return None
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    
-    return build('drive', 'v3', credentials=creds)
+            return {
+                "filename": filename,
+                "text": strip_subtitle_markup(payload.decode(encoding)),
+                "note": "",
+            }
+        except UnicodeDecodeError:
+            continue
 
-def create_drive_folder(service, name, parent_id=None):
-    """喺 Google Drive 建立資料夾"""
-    file_metadata = {
-        'name': name,
-        'mimeType': 'application/vnd.google-apps.folder'
+    return {"filename": filename, "text": "", "note": "Could not decode the uploaded text file."}
+
+
+def extract_keywords(sentences: Iterable[str], limit: int = 12) -> List[str]:
+    tokens = []
+    for sentence in sentences:
+        tokens.extend(re.findall(r"[A-Za-z][A-Za-z0-9-]{2,}|[\u4e00-\u9fff]{2,}", sentence.lower()))
+    ranked = Counter(token for token in tokens if token not in STOPWORDS)
+    return [word for word, _ in ranked.most_common(limit)]
+
+
+def timecode(seconds: int) -> str:
+    minutes, second = divmod(max(seconds, 0), 60)
+    hour, minute = divmod(minutes, 60)
+    if hour:
+        return f"{hour:02d}:{minute:02d}:{second:02d}"
+    return f"{minute:02d}:{second:02d}"
+
+
+def make_takeaways(sentences: List[str], keywords: List[str]) -> List[str]:
+    if not sentences:
+        return [
+            "Add a transcript, subtitles, or text notes to generate a content-grounded summary.",
+            "Paste a public media link to preserve source context for your notes.",
+            "Connect speech-to-text and LLM providers when moving from demo mode to production.",
+        ]
+
+    scored = []
+    for sentence in sentences:
+        score = sum(1 for keyword in keywords[:8] if keyword.lower() in sentence.lower())
+        score += min(len(sentence), 180) / 180
+        scored.append((score, sentence))
+
+    unique = []
+    for _, sentence in sorted(scored, reverse=True):
+        if sentence not in unique:
+            unique.append(sentence)
+        if len(unique) == 5:
+            break
+    return unique
+
+
+def make_chapters(sentences: List[str], keywords: List[str]) -> List[Dict[str, str]]:
+    if not sentences:
+        return [
+            {
+                "time": "00:00",
+                "title": "Awaiting transcript",
+                "summary": "Upload subtitles or paste transcript text to build timestamped chapters.",
+            }
+        ]
+
+    chapter_count = min(5, max(2, len(sentences)))
+    chunk_size = max(1, (len(sentences) + chapter_count - 1) // chapter_count)
+    chapters = []
+
+    for index in range(0, len(sentences), chunk_size):
+        chunk = sentences[index : index + chunk_size]
+        chapter_keywords = extract_keywords(chunk, limit=3) or keywords[:3]
+        title = " / ".join(word.title() for word in chapter_keywords[:2]) or f"Part {len(chapters) + 1}"
+        chapters.append(
+            {
+                "time": timecode(len(chapters) * 95),
+                "title": title,
+                "summary": " ".join(chunk[:2])[:360],
+            }
+        )
+        if len(chapters) >= 5:
+            break
+
+    return chapters
+
+
+def make_transcript_segments(sentences: List[str], title: str, source_note: str) -> List[Dict[str, str]]:
+    if not sentences:
+        placeholder = source_note or (
+            "No transcript was provided. This demo can still organize metadata, "
+            "but real audio/video transcription requires an external ASR service."
+        )
+        return [{"time": "00:00", "speaker": "System", "text": placeholder}]
+
+    return [
+        {
+            "time": timecode(index * 35),
+            "speaker": "Speaker" if index % 4 else "Host",
+            "text": sentence,
+        }
+        for index, sentence in enumerate(sentences[:24])
+    ]
+
+
+def make_mind_map(title: str, chapters: List[Dict[str, str]], keywords: List[str]) -> Dict[str, object]:
+    branches = []
+    for chapter in chapters:
+        branch_keywords = extract_keywords([chapter["summary"]], limit=4) or keywords[:4]
+        branches.append(
+            {
+                "label": chapter["title"],
+                "children": branch_keywords[:4],
+            }
+        )
+    return {"root": title, "branches": branches}
+
+
+def make_content_cards(summary: Dict[str, object]) -> List[Dict[str, str]]:
+    takeaways = summary["takeaways"]
+    chapters = summary["chapters"]
+    first_takeaway = takeaways[0] if takeaways else "A concise media insight."
+    return [
+        {
+            "type": "Article outline",
+            "content": "\n".join(
+                [
+                    f"# {summary['title']}",
+                    "## Key idea",
+                    first_takeaway,
+                    "## Sections",
+                    *[f"- {chapter['title']}: {chapter['summary'][:120]}" for chapter in chapters],
+                ]
+            ),
+        },
+        {
+            "type": "Social thread",
+            "content": "\n".join(f"{index + 1}. {takeaway}" for index, takeaway in enumerate(takeaways[:5])),
+        },
+        {
+            "type": "Study checklist",
+            "content": "\n".join(f"- [ ] Review: {chapter['title']}" for chapter in chapters),
+        },
+    ]
+
+
+def build_analysis(payload: Dict[str, str], upload_info: Optional[Dict[str, str]] = None) -> Dict[str, object]:
+    upload_info = upload_info or {"filename": "", "text": "", "note": ""}
+    url = (payload.get("url") or "").strip()
+    title = normalise_whitespace(payload.get("title") or "")
+    pasted_text = payload.get("transcript") or payload.get("text") or ""
+    source_text = strip_subtitle_markup(pasted_text) or upload_info.get("text", "")
+    platform = infer_platform(url) if url else ("Text upload" if upload_info.get("filename") else "Workspace")
+
+    if not title:
+        title = title_from_url(url) if url else Path(upload_info.get("filename") or "Untitled media").stem
+
+    sentences = split_sentences(source_text)
+    keywords = extract_keywords(sentences or [title, url], limit=12)
+    takeaways = make_takeaways(sentences, keywords)
+    chapters = make_chapters(sentences, keywords)
+    transcript = make_transcript_segments(sentences, title, upload_info.get("note", ""))
+    overview_seed = " ".join(takeaways[:2])
+    overview = (
+        overview_seed
+        if source_text
+        else "This analysis is based on the supplied media metadata. Add subtitles or a transcript for deeper, content-grounded notes."
+    )
+
+    analysis_id = hashlib.sha256(
+        json.dumps(
+            {
+                "url": url,
+                "title": title,
+                "text": source_text[:5000],
+                "created": datetime.utcnow().isoformat(timespec="seconds"),
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+
+    summary = {
+        "id": analysis_id,
+        "title": title,
+        "url": url,
+        "platform": platform,
+        "language": payload.get("language") or "auto",
+        "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "duration": timecode(max(len(transcript) * 35, len(chapters) * 95)),
+        "overview": overview,
+        "keywords": keywords,
+        "takeaways": takeaways,
+        "chapters": chapters,
+        "transcript": transcript,
+        "mind_map": make_mind_map(title, chapters, keywords),
+        "content_cards": [],
+        "source_note": upload_info.get("note", ""),
+        "input_mode": "transcript" if source_text else "metadata",
     }
-    if parent_id:
-        file_metadata['parents'] = [parent_id]
-    
-    try:
-        folder = service.files().create(body=file_metadata, fields='id').execute()
-        return folder['id']
-    except Exception as e:
-        log(f"建立資料夾失敗: {e}")
+    summary["content_cards"] = make_content_cards(summary)
+    save_analysis(summary)
+    return summary
+
+
+def save_analysis(summary: Dict[str, object]) -> None:
+    path = ANALYSIS_DIR / f"{summary['id']}.json"
+    with path.open("w", encoding="utf-8") as output:
+        json.dump(summary, output, ensure_ascii=False, indent=2)
+
+
+def load_analysis(analysis_id: str) -> Optional[Dict[str, object]]:
+    safe_id = re.sub(r"[^a-f0-9]", "", analysis_id or "")[:16]
+    if not safe_id:
         return None
 
-def upload_to_drive(service, file_path, folder_id=None):
-    """上傳檔案到 Google Drive"""
-    file_name = os.path.basename(file_path)
-    file_metadata = {'name': file_name}
-    if folder_id:
-        file_metadata['parents'] = [folder_id]
-    
-    media = MediaFileUpload(file_path, resumable=True)
-    file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id'
-    ).execute()
-    return file['id']
+    path = ANALYSIS_DIR / f"{safe_id}.json"
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as source:
+        return json.load(source)
 
-def crawl_all_judgments():
-    """
-    爬取所有判決書 - 使用改進的核心爬蟲
-    支援多法院、多年份、多分頁
-    """
-    from crawler_core import CourtCrawler, COURT_MAP
-    
-    pdf_list = []
-    
-    try:
-        log("開始爬取所有判決書 (改進版)...")
-        
-        # 使用新的核心爬蟲
-        crawler = CourtCrawler()
-        
-        # 搜尋多個年份（2020-今年）
-        current_year = datetime.now().year
-        years = list(range(2020, current_year + 1))
-        
-        # 搜尋所有法院
-        courts = ['tui', 'tsi', 'tjb', 'ta']  # 終審、中級、初級、行政
-        
-        for year in years:
-            for court_code in courts:
-                court_name = COURT_MAP.get(court_code, (court_code, court_code))[1]
-                log(f"搜尋 {year} 年 {court_name}...")
-                
-                try:
-                    # 爬取該年份和法院的所有判決書
-                    pdfs = crawler.crawl_year_court(year, court_code, delay=1)
-                    
-                    # 過濾已下載的
-                    new_pdfs = [p for p in pdfs if not is_downloaded(p['url'])]
-                    
-                    pdf_list.extend(new_pdfs)
-                    log(f"  {year}年 {court_name}: 找到 {len(pdfs)} 個，新增 {len(new_pdfs)} 個")
-                    
-                except Exception as e:
-                    log(f"  錯誤: {e}")
-                    continue
-        
-        log(f"總共找到 {len(pdf_list)} 個新判決書")
-        
-    except Exception as e:
-        log(f"爬取失敗: {e}")
-        import traceback
-        log(traceback.format_exc())
-    
-    return pdf_list
 
-def search_judgments(court=None, year_from=None, year_to=None, keyword=None):
-    """搜尋判決書（從快取）"""
-    load_cache()
-    results = cache_data.get('pdfs', [])
-    
-    # 過濾
-    if court:
-        results = [p for p in results if p.get('court') == court]
-    if year_from:
-        results = [p for p in results if p.get('year', '0000') >= year_from]
-    if year_to:
-        results = [p for p in results if p.get('year', '9999') <= year_to]
-    if keyword:
-        keyword = keyword.lower()
-        results = [p for p in results if keyword in p.get('title', '').lower() 
-                   or keyword in p.get('filename', '').lower()]
-    
-    return results
+def answer_question(summary: Dict[str, object], question: str) -> Dict[str, object]:
+    question = normalise_whitespace(question)
+    question_terms = extract_keywords([question], limit=8)
+    searchable = [
+        *(segment["text"] for segment in summary.get("transcript", [])),
+        *(chapter["summary"] for chapter in summary.get("chapters", [])),
+        *summary.get("takeaways", []),
+    ]
 
-def get_calendar_data(year=None, month=None):
-    """
-    取得日曆格式的數據
-    返回某年某月的判決書分佈
-    """
-    load_cache()
-    pdfs = cache_data.get('pdfs', [])
-    
-    if not year:
-        year = datetime.now().year
-    
-    # 按日期分組
-    date_groups = defaultdict(list)
-    
-    for pdf in pdfs:
-        date = pdf.get('date', '')
-        if date and date.startswith(str(year)):
-            date_groups[date].append(pdf)
-    
-    # 按月份分組
-    if month:
-        month_key = f"{year}-{month:02d}"
-        date_groups = {k: v for k, v in date_groups.items() if k.startswith(month_key)}
-    
-    return dict(date_groups)
+    matches = []
+    for text in searchable:
+        score = sum(1 for term in question_terms if term.lower() in text.lower())
+        if score:
+            matches.append((score, text))
 
-def get_stats():
-    """取得統計數據"""
-    load_cache()
-    pdfs = cache_data.get('pdfs', [])
-    
-    stats = {
-        'total': len(pdfs),
-        'by_year': defaultdict(int),
-        'by_month': defaultdict(int),
-        'by_court': defaultdict(int),
-        'recent_7_days': 0,
-        'recent_30_days': 0
-    }
-    
-    now = datetime.now()
-    
-    for pdf in pdfs:
-        # 年份統計
-        year = pdf.get('year', 'unknown')
-        stats['by_year'][year] += 1
-        
-        # 月份統計
-        date = pdf.get('date', '')
-        if date and len(date) >= 7:
-            stats['by_month'][date[:7]] += 1
-        
-        # 法院統計
-        court = pdf.get('court', 'unknown')
-        stats['by_court'][court] += 1
-        
-        # 最近日期統計
-        if date:
-            try:
-                pdf_date = datetime.strptime(date, '%Y-%m-%d')
-                days_diff = (now - pdf_date).days
-                if days_diff <= 7:
-                    stats['recent_7_days'] += 1
-                if days_diff <= 30:
-                    stats['recent_30_days'] += 1
-            except:
-                pass
-    
-    # 轉換為普通 dict
-    stats['by_year'] = dict(stats['by_year'])
-    stats['by_month'] = dict(stats['by_month'])
-    stats['by_court'] = dict(stats['by_court'])
-    
-    return stats
+    if matches:
+        best = [text for _, text in sorted(matches, reverse=True)[:3]]
+        answer = " ".join(best)
+    elif question:
+        answer = (
+            "I could not find a direct match in this analysis. The strongest overall idea is: "
+            + summary.get("overview", "")
+        )
+    else:
+        answer = "Ask about a chapter, keyword, action item, or quote from this media analysis."
 
-def download_pdf(url, save_path, delay=3):
-    """下載單個 PDF"""
-    try:
-        log(f"下載: {url}")
-        resp = requests.get(url, timeout=60, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        
-        if resp.status_code == 200:
-            with open(save_path, 'wb') as f:
-                f.write(resp.content)
-            log(f"✓ 已儲存: {save_path}")
-            
-            if delay > 0:
-                time.sleep(delay)
-            return True
-        else:
-            log(f"✗ 下載失敗 (HTTP {resp.status_code}): {url}")
-            return False
-            
-    except Exception as e:
-        log(f"✗ 下載錯誤: {e}")
-        return False
+    citations = [
+        {"time": segment["time"], "text": segment["text"]}
+        for segment in summary.get("transcript", [])[:3]
+        if any(term.lower() in segment["text"].lower() for term in question_terms)
+    ]
+    return {"answer": answer, "citations": citations}
 
-def process_downloads(pdf_list, upload_to_gdrive=True, base_folder_name="澳門法院判決書"):
-    """處理下載同上傳"""
-    global download_status
-    
-    download_status["running"] = True
-    download_status["total"] = len(pdf_list)
-    download_status["current"] = 0
-    download_status["message"] = "開始處理..."
-    
-    # 初始化 Google Drive
-    drive_service = None
-    base_folder_id = None
-    date_folders = {}
-    
-    if upload_to_gdrive:
-        log("連接 Google Drive...")
-        drive_service = get_drive_service()
-        if drive_service:
-            base_folder_id = create_drive_folder(drive_service, base_folder_name)
-            log(f"Google Drive 資料夾已建立: {base_folder_id}")
-        else:
-            log("警告: 無法連接 Google Drive")
-    
-    # 按日期分組
-    date_groups = defaultdict(list)
-    for pdf in pdf_list:
-        date = pdf.get('date', 'unknown')
-        if date and date != 'unknown':
-            # 使用年月作為資料夾名稱，例如 "2024-01"
-            folder_key = date[:7] if len(date) >= 7 else date
-        else:
-            folder_key = 'unknown'
-        date_groups[folder_key].append(pdf)
-    
-    log(f"按日期分組: {list(date_groups.keys())}")
-    
-    # 建立日期資料夾
-    if drive_service and base_folder_id:
-        for date_key in date_groups.keys():
-            folder_name = f"{date_key}月" if date_key != 'unknown' else '未知日期'
-            folder_id = create_drive_folder(drive_service, folder_name, base_folder_id)
-            date_folders[date_key] = folder_id
-            log(f"建立 {folder_name} 資料夾")
-    
-    # 下載同上傳
-    success_count = 0
-    skipped_count = 0
-    for date_key, pdfs in date_groups.items():
-        log(f"處理 {date_key} 的 {len(pdfs)} 個檔案...")
-        
-        # 建立日期本機資料夾
-        date_dir = DOWNLOAD_DIR / date_key
-        date_dir.mkdir(exist_ok=True)
-        
-        for pdf in pdfs:
-            if not download_status["running"]:
-                log("下載已停止")
-                break
-            
-            download_status["current"] += 1
-            
-            # 檢查是否已下載
-            if is_downloaded(pdf['url']):
-                log(f"跳過（已下載）: {pdf['filename']}")
-                skipped_count += 1
-                continue
-            
-            download_status["message"] = f"下載 {pdf['filename']}..."
-            
-            # 下載
-            save_path = date_dir / pdf['filename']
-            if download_pdf(pdf['url'], save_path):
-                success_count += 1
-                mark_downloaded(pdf['url'])  # 標記為已下載
-                
-                # 上傳到 Google Drive
-                if drive_service and date_key in date_folders:
-                    try:
-                        upload_to_drive(drive_service, str(save_path), date_folders[date_key])
-                        log(f"✓ 已上傳: {pdf['filename']}")
-                    except Exception as e:
-                        log(f"✗ 上傳失敗: {e}")
-            
-            download_status["message"] = f"完成 {download_status['current']}/{download_status['total']}"
-    
-    download_status["running"] = False
-    download_status["message"] = f"完成！成功 {success_count} 個，跳過 {skipped_count} 個"
-    log(f"全部完成！成功下載 {success_count} 個，跳過 {skipped_count} 個已存在檔案")
 
-# ============ Flask 路由 ============
+def analysis_to_markdown(summary: Dict[str, object]) -> str:
+    lines = [
+        f"# {summary['title']}",
+        "",
+        f"- Platform: {summary['platform']}",
+        f"- Duration: {summary['duration']}",
+        f"- Source: {summary['url'] or 'Local / pasted text'}",
+        f"- Created: {summary['created_at']}",
+        "",
+        "## Overview",
+        summary["overview"],
+        "",
+        "## Key takeaways",
+        *[f"- {item}" for item in summary["takeaways"]],
+        "",
+        "## Chapters",
+        *[f"- `{chapter['time']}` **{chapter['title']}** - {chapter['summary']}" for chapter in summary["chapters"]],
+        "",
+        "## Transcript",
+        *[f"- `{segment['time']}` {segment['speaker']}: {segment['text']}" for segment in summary["transcript"]],
+    ]
+    return "\n".join(lines) + "\n"
 
-@app.route('/')
+
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/api/crawl', methods=['POST'])
-def api_crawl():
-    """手動觸發爬蟲"""
-    data = request.json or {}
-    days_back = data.get('days_back', 30)
-    crawl_all = data.get('crawl_all', False)  # 新增：是否爬取所有
-    
-    # 在背景執行爬蟲
-    def do_crawl():
-        if crawl_all:
-            pdfs = crawl_all_judgments()  # 爬取所有
-        else:
-            pdfs = crawl_judgments(days_back)  # 爬取近期
-        cache_data['pdfs'] = pdfs
-        cache_data['last_update'] = datetime.now().isoformat()
-        save_cache()
-        log(f"爬蟲完成，找到 {len(pdfs)} 個判決書")
-    
-    thread = threading.Thread(target=do_crawl)
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({'status': 'crawling_started'})
 
-@app.route('/api/crawl-all', methods=['POST'])
-def api_crawl_all():
-    """爬取所有判決書（多年份）"""
-    
-    def do_crawl_all():
-        pdfs = crawl_all_judgments()
-        cache_data['pdfs'] = pdfs
-        cache_data['last_update'] = datetime.now().isoformat()
-        save_cache()
-        log(f"全部爬蟲完成，找到 {len(pdfs)} 個判決書")
-        
-        # 自動開始下載
-        if pdfs:
-            log("自動開始下載...")
-            process_downloads(pdfs, upload_to_gdrive=True)
-    
-    thread = threading.Thread(target=do_crawl_all)
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({'status': 'crawl_all_started'})
+@app.route("/api/analyze", methods=["POST"])
+def api_analyze():
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        payload = dict(request.form)
+        upload_info = read_uploaded_text(request.files.get("file"))
+    else:
+        payload = request.get_json(silent=True) or {}
+        upload_info = None
 
-@app.route('/api/search', methods=['POST'])
-def api_search():
-    data = request.json or {}
-    court = data.get('court', '')
-    year_from = data.get('year_from', '')
-    year_to = data.get('year_to', '')
-    keyword = data.get('keyword', '')
-    
-    results = search_judgments(court, year_from, year_to, keyword)
-    return jsonify({
-        'count': len(results),
-        'pdfs': results
-    })
+    summary = build_analysis(payload, upload_info)
+    return jsonify(summary)
 
-@app.route('/api/calendar')
-def api_calendar():
-    """取得日曆數據"""
-    year = request.args.get('year', type=int)
-    month = request.args.get('month', type=int)
-    
-    calendar_data = get_calendar_data(year, month)
-    return jsonify(calendar_data)
 
-@app.route('/api/stats')
-def api_stats():
-    """取得統計數據"""
-    stats = get_stats()
-    return jsonify(stats)
-
-@app.route('/api/start', methods=['POST'])
-def api_start():
-    global download_status
-    
-    if download_status["running"]:
-        return jsonify({'error': '下載進行中'}), 400
-    
-    data = request.json
-    pdf_list = data.get('pdfs', [])
-    upload_to_gdrive = data.get('upload_to_gdrive', True)
-    delay = data.get('delay', 3)
-    
-    if not pdf_list:
-        return jsonify({'error': '沒有 PDF 列表'}), 400
-    
-    download_status = {
-        "running": True,
-        "total": len(pdf_list),
-        "current": 0,
-        "message": "準備開始...",
-        "logs": []
-    }
-    
-    thread = threading.Thread(
-        target=process_downloads,
-        args=(pdf_list, upload_to_gdrive)
+@app.route("/api/demo")
+def api_demo():
+    sample_text = (
+        "The speaker explains how modern teams turn long videos and meetings into reusable knowledge. "
+        "First, they capture source material from public links, uploads, or existing subtitles. "
+        "Next, they extract a transcript and split it into chapters with timestamps. "
+        "The most valuable step is transforming raw transcript text into summaries, questions, action items, and shareable drafts. "
+        "A good workflow keeps citations connected to the original timecode so readers can verify every insight. "
+        "Finally, the team exports the result into Markdown, Notion, Obsidian, or social posts for follow-up work."
     )
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({'status': 'started'})
+    return jsonify(
+        build_analysis(
+            {
+                "url": "https://www.youtube.com/watch?v=demo",
+                "title": "Building a Media Knowledge Workflow",
+                "transcript": sample_text,
+                "language": "en",
+            }
+        )
+    )
 
-@app.route('/api/stop', methods=['POST'])
-def api_stop():
-    download_status["running"] = False
-    return jsonify({'status': 'stopped'})
 
-@app.route('/api/status')
-def api_status():
-    return jsonify(download_status)
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    payload = request.get_json(silent=True) or {}
+    summary = load_analysis(payload.get("id", ""))
+    if not summary:
+        return jsonify({"error": "Analysis not found. Generate a summary first."}), 404
+    return jsonify(answer_question(summary, payload.get("question", "")))
 
-@app.route('/api/logs')
-def api_logs():
-    return jsonify({'logs': download_status['logs']})
 
-@app.route('/api/downloaded')
-def api_downloaded():
-    """獲取已下載記錄"""
-    return jsonify({
-        'count': len(downloaded_records),
-        'urls': list(downloaded_records)
-    })
+@app.route("/api/export/<analysis_id>.md")
+def api_export_markdown(analysis_id: str):
+    summary = load_analysis(analysis_id)
+    if not summary:
+        return jsonify({"error": "Analysis not found"}), 404
 
-@app.route('/api/export')
-def api_export():
-    """匯出所有數據為 JSON"""
-    load_cache()
-    return jsonify(cache_data)
+    markdown = analysis_to_markdown(summary)
+    filename = re.sub(r"[^A-Za-z0-9_-]+", "-", summary["title"]).strip("-").lower() or "media-summary"
+    return Response(
+        markdown,
+        mimetype="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename={filename}.md"},
+    )
 
-# 初始化
-load_cache()
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+@app.route("/api/health")
+def api_health():
+    return jsonify({"status": "ok", "app": "MediaMind"})
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host="0.0.0.0", port=port)

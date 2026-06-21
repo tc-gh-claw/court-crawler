@@ -1,1654 +1,1021 @@
 <!DOCTYPE html>
-<html lang="zh-HK">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏛️ 澳門法院判決書庫</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>MediaMind - AI Media Knowledge Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #07111f;
+            --bg-soft: #0d1b2f;
+            --card: rgba(255, 255, 255, 0.08);
+            --card-strong: rgba(255, 255, 255, 0.13);
+            --line: rgba(255, 255, 255, 0.14);
+            --text: #edf5ff;
+            --muted: #9fb1ca;
+            --primary: #7c3aed;
+            --primary-2: #06b6d4;
+            --accent: #a7f3d0;
+            --warning: #fbbf24;
+            --danger: #fb7185;
+            --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+            --radius: 24px;
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
-        
-        :root {
-            --primary: #4f46e5;
-            --primary-dark: #4338ca;
-            --secondary: #06b6d4;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            --radius: 8px;
-            --radius-lg: 12px;
-        }
-        
+
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--gray-50);
-            color: var(--gray-800);
-            line-height: 1.6;
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 10%, rgba(124, 58, 237, 0.36), transparent 34rem),
+                radial-gradient(circle at 85% 12%, rgba(6, 182, 212, 0.28), transparent 30rem),
+                linear-gradient(145deg, #050914 0%, #07111f 48%, #0a1020 100%);
         }
-        
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            padding: 1.5rem 2rem;
-            box-shadow: var(--shadow-lg);
+
+        a {
+            color: inherit;
         }
-        
-        .header-content {
-            max-width: 1400px;
+
+        button,
+        input,
+        textarea,
+        select {
+            font: inherit;
+        }
+
+        .shell {
+            width: min(1180px, calc(100% - 32px));
             margin: 0 auto;
+        }
+
+        .nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
+            padding: 28px 0;
         }
-        
-        .logo {
+
+        .brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        
-        .header-actions {
-            display: flex;
-            gap: 0.75rem;
-        }
-        
-        .btn-header {
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius);
-            border: 1px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.1);
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.875rem;
-        }
-        
-        .btn-header:hover {
-            background: rgba(255,255,255,0.2);
-        }
-        
-        /* Main Layout */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            background: white;
-            padding: 0.5rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            overflow-x: auto;
-        }
-        
-        .tab {
-            padding: 0.75rem 1.25rem;
-            border: none;
-            background: transparent;
-            color: var(--gray-600);
-            cursor: pointer;
-            border-radius: var(--radius);
-            font-weight: 500;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        
-        .tab:hover {
-            background: var(--gray-100);
-            color: var(--gray-800);
-        }
-        
-        .tab.active {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .tab i {
-            margin-right: 0.5rem;
-        }
-        
-        /* Content Sections */
-        .content-section {
-            display: none;
-        }
-        
-        .content-section.active {
-            display: block;
-        }
-        
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-        
-        .stat-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-        
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: var(--radius);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            gap: 12px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
             font-size: 1.25rem;
         }
-        
-        .stat-icon.blue { background: #e0e7ff; color: var(--primary); }
-        .stat-icon.green { background: #d1fae5; color: var(--success); }
-        .stat-icon.orange { background: #fef3c7; color: var(--warning); }
-        .stat-icon.red { background: #fee2e2; color: var(--danger); }
-        .stat-icon.cyan { background: #cffafe; color: var(--secondary); }
-        .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
-        
-        .stat-label {
-            color: var(--gray-500);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-        
-        .stat-change {
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-        }
-        
-        .stat-change.positive { color: var(--success); }
-        .stat-change.negative { color: var(--danger); }
-        
-        /* Calendar Styles */
-        .calendar-container {
-            background: white;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            padding: 1.5rem;
-        }
-        
-        .calendar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-        
-        .calendar-nav {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        
-        .calendar-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--gray-800);
-        }
-        
-        .calendar-grid {
+
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 0.5rem;
+            place-items: center;
+            color: #06111f;
+            background: linear-gradient(135deg, var(--accent), #93c5fd 46%, #c4b5fd);
+            box-shadow: 0 16px 40px rgba(124, 58, 237, 0.3);
         }
-        
-        .calendar-day-header {
-            text-align: center;
-            padding: 0.75rem;
-            font-weight: 600;
-            color: var(--gray-500);
-            font-size: 0.875rem;
-        }
-        
-        .calendar-day {
-            aspect-ratio: 1;
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-            min-height: 80px;
-        }
-        
-        .calendar-day:hover {
-            border-color: var(--primary);
-            background: var(--gray-50);
-        }
-        
-        .calendar-day.other-month {
-            color: var(--gray-400);
-            background: var(--gray-50);
-        }
-        
-        .calendar-day.today {
-            border-color: var(--primary);
-            background: #e0e7ff;
-        }
-        
-        .calendar-day.has-data {
-            border-color: var(--success);
-        }
-        
-        .day-number {
-            font-weight: 500;
-            font-size: 0.875rem;
-        }
-        
-        .day-count {
-            position: absolute;
-            bottom: 0.25rem;
-            right: 0.25rem;
-            background: var(--success);
-            color: white;
-            font-size: 0.75rem;
-            padding: 0.125rem 0.375rem;
-            border-radius: 9999px;
-            font-weight: 600;
-        }
-        
-        /* Timeline Styles */
-        .timeline {
-            position: relative;
-            padding-left: 2rem;
-        }
-        
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 0.5rem;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: var(--gray-200);
-        }
-        
-        .timeline-item {
-            position: relative;
-            margin-bottom: 1.5rem;
-            background: white;
-            padding: 1.25rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-        }
-        
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -1.75rem;
-            top: 1.5rem;
-            width: 12px;
-            height: 12px;
-            background: var(--primary);
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: var(--shadow);
-        }
-        
-        .timeline-date {
+
+        .nav-links {
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--primary);
-            font-weight: 600;
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
+            gap: 18px;
+            color: var(--muted);
+            font-size: 0.95rem;
         }
-        
-        .timeline-content {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        
-        /* PDF List */
-        .pdf-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        
-        .pdf-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: var(--gray-50);
-            border-radius: var(--radius);
-            border: 1px solid var(--gray-200);
-            transition: all 0.2s;
-        }
-        
-        .pdf-item:hover {
-            border-color: var(--primary);
-            background: white;
-        }
-        
-        .pdf-checkbox {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-        
-        .pdf-icon {
-            width: 40px;
-            height: 40px;
-            background: #fee2e2;
-            color: var(--danger);
-            border-radius: var(--radius);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-        
-        .pdf-info {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .pdf-title {
-            font-weight: 500;
-            color: var(--gray-800);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .pdf-meta {
-            display: flex;
-            gap: 1rem;
-            font-size: 0.75rem;
-            color: var(--gray-500);
-            margin-top: 0.25rem;
-        }
-        
-        .pdf-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .btn-icon {
-            width: 36px;
-            height: 36px;
-            border: none;
-            background: white;
-            border-radius: var(--radius);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--gray-600);
-            transition: all 0.2s;
-        }
-        
-        .btn-icon:hover {
-            background: var(--primary);
-            color: white;
-        }
-        
-        /* Search & Filters */
-        .search-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            margin-bottom: 1.5rem;
-        }
-        
-        .search-grid {
+
+        .hero {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+            grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+            gap: 34px;
+            align-items: center;
+            padding: 56px 0 34px;
         }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.375rem;
-        }
-        
-        .form-label {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--gray-700);
-        }
-        
-        .form-input {
-            padding: 0.625rem 0.875rem;
-            border: 1px solid var(--gray-300);
-            border-radius: var(--radius);
-            font-size: 0.875rem;
-            transition: all 0.2s;
-        }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-        
-        .search-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 1rem;
-        }
-        
-        .btn {
-            padding: 0.625rem 1.25rem;
-            border: none;
-            border-radius: var(--radius);
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
+
+        .eyebrow {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-        
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-        
-        .btn-secondary {
-            background: var(--gray-100);
-            color: var(--gray-700);
-        }
-        
-        .btn-secondary:hover {
-            background: var(--gray-200);
-        }
-        
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-        
-        .btn-success:hover {
-            background: #059669;
-        }
-        
-        /* Progress */
-        .progress-container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            margin-bottom: 1.5rem;
-        }
-        
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: var(--gray-200);
-            border-radius: 9999px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            border-radius: 9999px;
-            transition: width 0.3s;
-        }
-        
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--gray-500);
-        }
-        
-        .logs-container {
-            background: var(--gray-900);
-            color: var(--gray-300);
-            padding: 1rem;
-            border-radius: var(--radius);
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 0.75rem;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 1rem;
-        }
-        
-        .log-entry {
-            margin-bottom: 0.25rem;
-        }
-        
-        .log-entry.success { color: var(--success); }
-        .log-entry.error { color: var(--danger); }
-        
-        /* Charts Section */
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .chart-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-        }
-        
-        .chart-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--gray-800);
-            margin-bottom: 1rem;
-        }
-        
-        .chart-canvas {
-            height: 250px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--gray-400);
-        }
-        
-        /* Year/Month Browsers */
-        .browser-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1rem;
-        }
-        
-        .browser-card {
-            background: white;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .browser-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-        
-        .browser-header {
-            padding: 1.25rem;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-        }
-        
-        .browser-title {
-            font-size: 1.25rem;
+            gap: 8px;
+            padding: 8px 12px;
+            color: var(--accent);
+            background: rgba(167, 243, 208, 0.1);
+            border: 1px solid rgba(167, 243, 208, 0.22);
+            border-radius: 999px;
+            font-size: 0.85rem;
             font-weight: 700;
         }
-        
-        .browser-subtitle {
-            font-size: 0.875rem;
-            opacity: 0.9;
-            margin-top: 0.25rem;
+
+        h1 {
+            margin: 22px 0 18px;
+            font-size: clamp(2.8rem, 7vw, 5.9rem);
+            line-height: 0.92;
+            letter-spacing: -0.08em;
         }
-        
-        .browser-body {
-            padding: 1rem;
+
+        .gradient-text {
+            color: transparent;
+            background: linear-gradient(120deg, #fff, #bfdbfe 45%, #a7f3d0);
+            -webkit-background-clip: text;
+            background-clip: text;
         }
-        
-        .browser-stat {
+
+        .lead {
+            max-width: 720px;
+            margin: 0 0 28px;
+            color: var(--muted);
+            font-size: 1.12rem;
+            line-height: 1.75;
+        }
+
+        .hero-actions {
             display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--gray-100);
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 28px;
         }
-        
-        .browser-stat:last-child {
-            border-bottom: none;
-        }
-        
-        /* Modal */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-        
-        .modal-overlay.active {
-            display: flex;
-        }
-        
-        .modal {
-            background: white;
-            border-radius: var(--radius-lg);
-            max-width: 800px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: var(--shadow-lg);
-        }
-        
-        .modal-header {
-            padding: 1.25rem;
-            border-bottom: 1px solid var(--gray-200);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .modal-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-        }
-        
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
+
+        .button {
+            border: 0;
+            border-radius: 16px;
+            padding: 14px 18px;
+            color: var(--text);
+            background: var(--card-strong);
+            border: 1px solid var(--line);
             cursor: pointer;
-            color: var(--gray-500);
+            font-weight: 800;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
         }
-        
-        .modal-body {
-            padding: 1.25rem;
+
+        .button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 255, 255, 0.28);
+        }
+
+        .button.primary {
+            color: #04111f;
+            background: linear-gradient(135deg, #a7f3d0, #67e8f9);
+            border-color: transparent;
+        }
+
+        .button.ghost {
+            color: var(--muted);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .stat {
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--line);
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 1.6rem;
+            letter-spacing: -0.04em;
+        }
+
+        .stat span {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .composer {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.07));
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: var(--radius);
+            padding: 22px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(24px);
+        }
+
+        .composer h2 {
+            margin: 0 0 8px;
+            font-size: 1.15rem;
+            letter-spacing: -0.03em;
+        }
+
+        .composer p {
+            margin: 0 0 18px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        label {
+            color: #d6e6fa;
+            font-size: 0.86rem;
+            font-weight: 700;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            color: var(--text);
+            background: rgba(4, 12, 24, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 14px;
+            outline: none;
+            padding: 13px 14px;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        textarea {
+            min-height: 132px;
+            resize: vertical;
+            line-height: 1.55;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: rgba(103, 232, 249, 0.7);
+            box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.14);
+        }
+
+        input[type="file"] {
+            padding: 11px;
+            color: var(--muted);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 180px;
+            gap: 12px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 18px;
+        }
+
+        .status {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            padding: 26px 0 42px;
+        }
+
+        .feature-card,
+        .panel {
+            background: rgba(255, 255, 255, 0.075);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+        }
+
+        .feature-card {
+            padding: 18px;
+        }
+
+        .feature-card b {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.55;
+            font-size: 0.92rem;
+        }
+
+        .workspace {
+            display: none;
+            grid-template-columns: 330px minmax(0, 1fr);
+            gap: 18px;
+            padding-bottom: 48px;
+        }
+
+        .workspace.active {
+            display: grid;
+        }
+
+        .side {
+            position: sticky;
+            top: 18px;
+            align-self: start;
+            padding: 18px;
+        }
+
+        .side h3,
+        .panel h3 {
+            margin: 0;
+            letter-spacing: -0.03em;
+        }
+
+        .meta-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .meta {
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(0, 0, 0, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .meta span {
+            display: block;
+            color: var(--muted);
+            font-size: 0.78rem;
+            margin-bottom: 5px;
+        }
+
+        .meta b {
+            word-break: break-word;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            margin-bottom: 14px;
+        }
+
+        .tab {
+            border: 0;
+            padding: 10px 13px;
+            border-radius: 14px;
+            color: var(--muted);
+            background: transparent;
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .tab.active {
+            color: #06111f;
+            background: #a7f3d0;
+        }
+
+        .panel {
+            display: none;
+            padding: 22px;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 18px;
+        }
+
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .pill {
+            padding: 8px 10px;
+            border-radius: 999px;
+            color: #c8f7ff;
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(103, 232, 249, 0.18);
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .takeaways,
+        .timeline,
+        .transcript,
+        .cards {
+            display: grid;
+            gap: 12px;
+        }
+
+        .takeaway,
+        .chapter,
+        .segment,
+        .content-card,
+        .chat-message {
+            padding: 15px;
+            border-radius: 18px;
+            background: rgba(0, 0, 0, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+        }
+
+        .chapter {
+            display: grid;
+            grid-template-columns: 78px 1fr;
+            gap: 14px;
+        }
+
+        .time {
+            color: var(--accent);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .chapter b,
+        .segment b {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .segment {
+            display: grid;
+            grid-template-columns: 78px 1fr;
+            gap: 14px;
+        }
+
+        .mindmap {
+            overflow-x: auto;
+            padding: 8px 0;
+        }
+
+        .map-root {
+            display: inline-grid;
+            grid-template-columns: 220px repeat(5, 190px);
+            gap: 12px;
+            align-items: start;
+            min-width: 720px;
+        }
+
+        .node {
+            padding: 14px;
+            border-radius: 18px;
+            background: rgba(167, 243, 208, 0.12);
+            border: 1px solid rgba(167, 243, 208, 0.26);
+            font-weight: 800;
+        }
+
+        .branch {
+            display: grid;
+            gap: 8px;
+        }
+
+        .leaf {
+            padding: 10px;
+            border-radius: 14px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            font-size: 0.9rem;
+        }
+
+        .content-card pre {
+            margin: 10px 0 0;
+            white-space: pre-wrap;
+            color: #d9e8fb;
+            line-height: 1.55;
+        }
+
+        .chat-log {
+            display: grid;
+            gap: 10px;
+            max-height: 330px;
             overflow-y: auto;
-            max-height: 60vh;
+            margin-bottom: 14px;
         }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .calendar-grid {
-                gap: 0.25rem;
-            }
-            
-            .calendar-day {
-                min-height: 60px;
-                padding: 0.25rem;
-            }
-            
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .timeline {
-                padding-left: 1.5rem;
-            }
-            
-            .timeline::before {
-                left: 0.25rem;
-            }
-            
-            .timeline-item::before {
-                left: -1.5rem;
-            }
+
+        .chat-message.user {
+            border-color: rgba(103, 232, 249, 0.25);
+            background: rgba(6, 182, 212, 0.12);
         }
-        
-        /* Loading */
-        .loading {
+
+        .chat-message.assistant {
+            border-color: rgba(167, 243, 208, 0.25);
+        }
+
+        .note {
+            margin-top: 12px;
+            color: #fde68a;
+            background: rgba(251, 191, 36, 0.11);
+            border: 1px solid rgba(251, 191, 36, 0.22);
+            border-radius: 16px;
+            padding: 12px;
+            line-height: 1.55;
+        }
+
+        .empty {
+            color: var(--muted);
+            padding: 18px;
+            border-radius: 18px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .loader {
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #a7f3d0;
+            border-radius: 999px;
+            animation: spin 0.8s linear infinite;
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
+            vertical-align: middle;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--gray-500);
+
+        @media (max-width: 980px) {
+            .hero,
+            .workspace,
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .features,
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .side {
+                position: static;
+            }
         }
-        
-        .empty-state i {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            color: var(--gray-300);
-        }
-        
-        .empty-state h3 {
-            font-size: 1.25rem;
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
+
+        @media (max-width: 640px) {
+            .nav {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+            }
+
+            .grid-2,
+            .features,
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .chapter,
+            .segment {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <i class="fas fa-landmark"></i>
-                <span>澳門法院判決書庫</span>
+    <div class="shell">
+        <nav class="nav">
+            <div class="brand">
+                <div class="brand-mark">MM</div>
+                <span>MediaMind</span>
             </div>
-            <div class="header-actions">
-                <button class="btn-header" onclick="crawlData()">
-                    <i class="fas fa-sync"></i> 更新數據
-                </button>
-                <button class="btn-header" onclick="exportData()">
-                    <i class="fas fa-download"></i> 匯出
-                </button>
+            <div class="nav-links">
+                <a href="#analyze">Analyze</a>
+                <a href="#workspace">Workspace</a>
+                <a href="/api/health">API</a>
             </div>
-        </div>
-    </header>
+        </nav>
 
-    <div class="container">
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" data-tab="dashboard">
-                <i class="fas fa-chart-pie"></i>儀表板
-            </button>
-            <button class="tab" data-tab="calendar">
-                <i class="fas fa-calendar-alt"></i>日曆視圖
-            </button>
-            <button class="tab" data-tab="timeline">
-                <i class="fas fa-stream"></i>時間線
-            </button>
-            <button class="tab" data-tab="browse">
-                <i class="fas fa-folder-open"></i>瀏覽
-            </button>
-            <button class="tab" data-tab="search">
-                <i class="fas fa-search"></i>搜尋
-            </button>
-            <button class="tab" data-tab="download">
-                <i class="fas fa-download"></i>下載管理
-            </button>
-        </div>
-
-        <!-- Dashboard Section -->
-        <section id="dashboard" class="content-section active">
-            <div class="stats-grid" id="stats-grid">
-                <!-- 動態生成 -->
-            </div>
-            
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-title">📊 按年份分佈</div>
-                    <div id="year-chart" class="chart-canvas">
-                        載入中...
-                    </div>
+        <section class="hero">
+            <div>
+                <div class="eyebrow">AI media notes, transcripts, and reusable knowledge</div>
+                <h1><span class="gradient-text">Turn any media into a searchable brief.</span></h1>
+                <p class="lead">
+                    Paste a video, podcast, course, or meeting link. Add subtitles, a transcript, or a text upload.
+                    MediaMind generates a structured summary, chapter timeline, mind map, chat-ready citations,
+                    and reusable content drafts.
+                </p>
+                <div class="hero-actions">
+                    <button class="button primary" onclick="focusAnalyzer()">Start analyzing</button>
+                    <button class="button ghost" onclick="loadDemo()">Try sample result</button>
                 </div>
-                <div class="chart-card">
-                    <div class="chart-title">📈 按月分佈</div>
-                    <div id="month-chart" class="chart-canvas">
-                        載入中...
+                <div class="stats">
+                    <div class="stat">
+                        <strong>20+</strong>
+                        <span>source types in the UI</span>
+                    </div>
+                    <div class="stat">
+                        <strong>5</strong>
+                        <span>knowledge outputs</span>
+                    </div>
+                    <div class="stat">
+                        <strong>0</strong>
+                        <span>required external keys for MVP</span>
                     </div>
                 </div>
             </div>
-            
-            <div class="chart-card">
-                <div class="chart-title">🏛️ 按法院分佈</div>
-                <div id="court-chart" style="display: flex; gap: 2rem; flex-wrap: wrap;">
-                    載入中...
-                </div>
-            </div>
-        </section>
 
-        <!-- Calendar Section -->
-        <section id="calendar" class="content-section">
-            <div class="calendar-container">
-                <div class="calendar-header">
-                    <div class="calendar-nav">
-                        <button class="btn btn-secondary" onclick="changeMonth(-1)">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <div class="calendar-title" id="calendar-title">2024年1月</div>
-                        <button class="btn btn-secondary" onclick="changeMonth(1)">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
+            <form id="analyze" class="composer">
+                <h2>Analyze media</h2>
+                <p>
+                    The MVP summarizes pasted transcript/subtitle text locally. Raw audio/video uploads are accepted
+                    as metadata until you connect an ASR provider.
+                </p>
+                <div class="field">
+                    <label for="url">Media URL</label>
+                    <input id="url" name="url" type="url" placeholder="https://youtube.com/watch?v=...">
+                </div>
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="title">Title</label>
+                        <input id="title" name="title" placeholder="Optional title">
                     </div>
-                    <button class="btn btn-primary" onclick="goToToday()">今天</button>
-                </div>
-                
-                <div class="calendar-grid" id="calendar-grid">
-                    <!-- 動態生成 -->
-                </div>
-            </div>
-        </section>
-
-        <!-- Timeline Section -->
-        <section id="timeline" class="content-section">
-            <div id="timeline-container" class="timeline">
-                <div class="empty-state">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <h3>載入中...</h3>
-                </div>
-            </div>
-        </section>
-
-        <!-- Browse Section -->
-        <section id="browse" class="content-section">
-            <div class="search-section">
-                <div class="form-group">
-                    <label class="form-label">選擇年份</label>
-                    <select class="form-input" id="browse-year" onchange="loadYearData()">
-                        <option value="">全部年份</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div id="browse-content" class="browser-grid">
-                <!-- 動態生成 -->
-            </div>
-        </section>
-
-        <!-- Search Section -->
-        <section id="search" class="content-section">
-            <div class="search-section">
-                <div class="search-grid">
-                    <div class="form-group">
-                        <label class="form-label">關鍵字</label>
-                        <input type="text" class="form-input" id="search-keyword" placeholder="輸入關鍵字...">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">法院</label>
-                        <select class="form-input" id="search-court">
-                            <option value="">全部法院</option>
-                            <option value="final">終審法院</option>
-                            <option value="intermediate">中級法院</option>
-                            <option value="primary">初級法院</option>
+                    <div class="field">
+                        <label for="language">Language</label>
+                        <select id="language" name="language">
+                            <option value="auto">Auto detect</option>
+                            <option value="en">English</option>
+                            <option value="zh">Chinese</option>
+                            <option value="ja">Japanese</option>
+                            <option value="ko">Korean</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">年份 (由)</label>
-                        <input type="number" class="form-input" id="search-year-from" placeholder="2020">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">年份 (至)</label>
-                        <input type="number" class="form-input" id="search-year-to" placeholder="2024">
-                    </div>
                 </div>
-                
-                <div class="search-actions">
-                    <button class="btn btn-primary" onclick="performSearch()">
-                        <i class="fas fa-search"></i>搜尋
-                    </button>
-                    <button class="btn btn-secondary" onclick="clearSearch()">
-                        <i class="fas fa-undo"></i>清除
-                    </button>
+                <div class="field">
+                    <label for="transcript">Transcript, subtitles, or notes</label>
+                    <textarea id="transcript" name="transcript" placeholder="Paste SRT/VTT text, meeting transcript, or notes here..."></textarea>
                 </div>
+                <div class="field">
+                    <label for="file">Upload text/subtitle file</label>
+                    <input id="file" name="file" type="file" accept=".txt,.md,.srt,.vtt,.json,.csv,.mp3,.mp4,.m4a,.wav">
+                </div>
+                <div class="form-actions">
+                    <button class="button primary" type="submit">Generate knowledge pack</button>
+                    <span id="status" class="status"></span>
+                </div>
+            </form>
+        </section>
+
+        <section class="features" aria-label="Capabilities">
+            <div class="feature-card">
+                <b>Structured summary</b>
+                <p>Overview, keywords, takeaways, and chapter-level breakdowns.</p>
             </div>
-            
-            <div id="search-results">
-                <div class="empty-state">
-                    <i class="fas fa-search"></i>
-                    <h3>輸入條件開始搜尋</h3>
-                    <p>支援關鍵字、法院、年份範圍搜尋</p>
-                </div>
+            <div class="feature-card">
+                <b>Timestamped transcript</b>
+                <p>Transcript segments with generated timecodes for citation-friendly reading.</p>
+            </div>
+            <div class="feature-card">
+                <b>Mind map</b>
+                <p>A compact branch map that turns long-form media into visual study notes.</p>
+            </div>
+            <div class="feature-card">
+                <b>Chat and export</b>
+                <p>Ask questions over the generated pack and download clean Markdown.</p>
             </div>
         </section>
 
-        <!-- Download Section -->
-        <section id="download" class="content-section">
-            <div class="progress-container" id="download-progress" style="display: none;">
-                <div class="progress-header">
-                    <div>
-                        <div style="font-weight: 600; margin-bottom: 0.25rem;">下載進度</div>
-                        <div id="download-message" style="color: var(--gray-500); font-size: 0.875rem;">準備中...</div>
+        <section id="workspace" class="workspace">
+            <aside class="panel side">
+                <h3 id="summary-title">Your media brief</h3>
+                <div class="meta-list">
+                    <div class="meta">
+                        <span>Platform</span>
+                        <b id="meta-platform">-</b>
                     </div>
-                    <button class="btn btn-secondary" onclick="stopDownload()">
-                        <i class="fas fa-stop"></i>停止
-                    </button>
+                    <div class="meta">
+                        <span>Duration</span>
+                        <b id="meta-duration">-</b>
+                    </div>
+                    <div class="meta">
+                        <span>Source</span>
+                        <b id="meta-source">-</b>
+                    </div>
                 </div>
-                
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                <div class="pill-row" id="keywords"></div>
+                <div id="source-note"></div>
+                <div class="form-actions">
+                    <button class="button primary" id="export-button" type="button">Export Markdown</button>
                 </div>
-                
-                <div class="progress-info">
-                    <span id="progress-current">0</span>
-                    <span id="progress-percent">0%</span>
-                    <span id="progress-total">0</span>
-                </div>
-                
-                <div class="logs-container" id="download-logs"></div>
-            </div>
-            
-            <div class="search-section">
-                <h3 style="margin-bottom: 1rem;">下載選項</h3>
-                
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label class="form-label">
-                        <input type="checkbox" id="upload-gdrive" checked>
-                        同時上傳到 Google Drive
-                    </label>
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label class="form-label">下載延遲（秒）</label>
-                    <input type="number" class="form-input" id="download-delay" value="3" min="1" max="30" style="width: 100px;">
-                    <small style="color: var(--gray-500);">建議 3-5 秒，避免被封</small>
-                </div>
-                
-                <div class="search-actions">
-                    <button class="btn btn-primary" onclick="downloadSelected()">
-                        <i class="fas fa-download"></i>下載已選項目
-                    </button>
-                </div>
-            </div>
-        </section>
-    </div>
+            </aside>
 
-    <!-- Modal -->
-    <div class="modal-overlay" id="modal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title" id="modal-title">判決書列表</div>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="modal-body">
-                <!-- 動態生成 -->
-            </div>
-        </div>
+            <main>
+                <div class="tabs" role="tablist">
+                    <button class="tab active" data-panel="summary">Summary</button>
+                    <button class="tab" data-panel="chapters">Chapters</button>
+                    <button class="tab" data-panel="transcript-panel">Transcript</button>
+                    <button class="tab" data-panel="mindmap-panel">Mind map</button>
+                    <button class="tab" data-panel="chat-panel">Chat</button>
+                    <button class="tab" data-panel="content-panel">Repurpose</button>
+                </div>
+
+                <section id="summary" class="panel active">
+                    <div class="summary-grid">
+                        <div>
+                            <div class="section-title">
+                                <h3>Overview</h3>
+                            </div>
+                            <p id="overview" class="muted"></p>
+                        </div>
+                        <div>
+                            <div class="section-title">
+                                <h3>Key takeaways</h3>
+                            </div>
+                            <div id="takeaways" class="takeaways"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="chapters" class="panel">
+                    <div class="section-title">
+                        <h3>Chapter timeline</h3>
+                        <span class="muted">Generated timestamps</span>
+                    </div>
+                    <div id="chapter-list" class="timeline"></div>
+                </section>
+
+                <section id="transcript-panel" class="panel">
+                    <div class="section-title">
+                        <h3>Transcript</h3>
+                        <span class="muted">Citation-ready snippets</span>
+                    </div>
+                    <div id="transcript-list" class="transcript"></div>
+                </section>
+
+                <section id="mindmap-panel" class="panel">
+                    <div class="section-title">
+                        <h3>Mind map</h3>
+                        <span class="muted">Scroll horizontally on small screens</span>
+                    </div>
+                    <div id="mindmap" class="mindmap"></div>
+                </section>
+
+                <section id="chat-panel" class="panel">
+                    <div class="section-title">
+                        <h3>Ask this media</h3>
+                        <span class="muted">Answers are grounded in generated notes</span>
+                    </div>
+                    <div id="chat-log" class="chat-log">
+                        <div class="empty">Generate a media brief, then ask a question such as "What are the main action items?"</div>
+                    </div>
+                    <form id="chat-form" class="grid-2">
+                        <input id="chat-question" placeholder="Ask about the summary, chapters, or transcript...">
+                        <button class="button primary" type="submit">Ask</button>
+                    </form>
+                </section>
+
+                <section id="content-panel" class="panel">
+                    <div class="section-title">
+                        <h3>Repurpose drafts</h3>
+                        <span class="muted">Article, social, and study formats</span>
+                    </div>
+                    <div id="content-cards" class="cards"></div>
+                </section>
+            </main>
+        </section>
     </div>
 
     <script>
-        // 全局狀態
-        let currentTab = 'dashboard';
-        let currentDate = new Date();
-        let allPDFs = [];
-        let selectedPDFs = new Set();
-        let stats = {};
+        let currentAnalysis = null;
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            loadStats();
-            loadCalendar();
-            setupTabs();
+        const form = document.getElementById("analyze");
+        const statusEl = document.getElementById("status");
+        const workspace = document.getElementById("workspace");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            await analyzeForm();
         });
 
-        // Tab 切換
-        function setupTabs() {
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const tabId = tab.dataset.tab;
-                    switchTab(tabId);
-                });
+        document.querySelectorAll(".tab").forEach((tab) => {
+            tab.addEventListener("click", () => {
+                document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+                document.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("active"));
+                tab.classList.add("active");
+                document.getElementById(tab.dataset.panel).classList.add("active");
             });
-        }
-
-        function switchTab(tabId) {
-            currentTab = tabId;
-            
-            // 更新 tab 樣式
-            document.querySelectorAll('.tab').forEach(t => {
-                t.classList.toggle('active', t.dataset.tab === tabId);
-            });
-            
-            // 顯示對應內容
-            document.querySelectorAll('.content-section').forEach(s => {
-                s.classList.toggle('active', s.id === tabId);
-            });
-            
-            // 載入對應數據
-            if (tabId === 'dashboard') loadStats();
-            if (tabId === 'calendar') loadCalendar();
-            if (tabId === 'timeline') loadTimeline();
-            if (tabId === 'browse') loadBrowse();
-        }
-
-        // 載入統計
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                stats = await response.json();
-                
-                // 渲染統計卡片
-                const statsGrid = document.getElementById('stats-grid');
-                statsGrid.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <div>
-                                <div class="stat-label">總判決書數</div>
-                                <div class="stat-value" id="stat-total">${stats.total || 0}</div>
-                            </div>
-                            <div class="stat-icon blue"><i class="fas fa-file-alt"></i></div>
-                        </div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <div>
-                                <div class="stat-label">最近7日</div>
-                                <div class="stat-value" id="stat-7days">${stats.recent_7_days || 0}</div>
-                            </div>
-                            <div class="stat-icon green"><i class="fas fa-calendar-week"></i></div>
-                        </div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <div>
-                                <div class="stat-label">最近30日</div>
-                                <div class="stat-value" id="stat-30days">${stats.recent_30_days || 0}</div>
-                            </div>
-                            <div class="stat-icon orange"><i class="fas fa-calendar-alt"></i></div>
-                        </div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <div>
-                                <div class="stat-label">年份覆蓋</div>
-                                <div class="stat-value" id="stat-years">${Object.keys(stats.by_year || {}).length}</div>
-                            </div>
-                            <div class="stat-icon purple"><i class="fas fa-history"></i></div>
-                        </div>
-                    </div>
-                `;
-                
-                // 渲染圖表
-                renderCharts();
-                
-            } catch (e) {
-                console.error('載入統計失敗:', e);
-            }
-        }
-
-        // 渲染圖表
-        function renderCharts() {
-            // 年份圖表
-            const yearData = stats.by_year || {};
-            const yearChart = document.getElementById('year-chart');
-            const years = Object.keys(yearData).sort();
-            const yearCounts = years.map(y => yearData[y]);
-            
-            yearChart.innerHTML = `
-                <div style="display: flex; align-items: flex-end; gap: 8px; height: 200px; padding: 10px;">
-                    ${years.map((year, i) => {
-                        const max = Math.max(...yearCounts);
-                        const height = max > 0 ? (yearCounts[i] / max * 100) : 0;
-                        return `
-                            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                                <div style="width: 100%; background: var(--primary); border-radius: 4px 4px 0 0; height: ${height}%; min-height: 4px;"></div>
-                                <div style="font-size: 10px; margin-top: 4px; transform: rotate(-45deg); white-space: nowrap;">${year}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-            
-            // 月份圖表
-            const monthData = stats.by_month || {};
-            const monthChart = document.getElementById('month-chart');
-            const months = Object.keys(monthData).sort().slice(-12);
-            const monthCounts = months.map(m => monthData[m]);
-            
-            monthChart.innerHTML = `
-                <div style="display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 10px;">
-                    ${months.map((month, i) => {
-                        const max = Math.max(...monthCounts);
-                        const height = max > 0 ? (monthCounts[i] / max * 100) : 0;
-                        return `
-                            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                                <div style="width: 100%; background: var(--secondary); border-radius: 4px 4px 0 0; height: ${height}%; min-height: 4px;"></div>
-                                <div style="font-size: 10px; margin-top: 4px;">${month.slice(-2)}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-            
-            // 法院圖表
-            const courtData = stats.by_court || {};
-            const courtChart = document.getElementById('court-chart');
-            const courtNames = {
-                'final': '終審法院',
-                'intermediate': '中級法院',
-                'primary': '初級法院'
-            };
-            
-            courtChart.innerHTML = Object.entries(courtData).map(([court, count]) => `
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <div style="width: 20px; height: 20px; background: var(--primary); border-radius: 50%;"></div>
-                    <span>${courtNames[court] || court}: ${count}</span>
-                </div>
-            `).join('');
-        }
-
-        // 日曆功能
-        async function loadCalendar() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth() + 1;
-            
-            document.getElementById('calendar-title').textContent = 
-                `${year}年${month}月`;
-            
-            try {
-                const response = await fetch(`/api/calendar?year=${year}&month=${month}`);
-                const calendarData = await response.json();
-                
-                renderCalendar(calendarData);
-            } catch (e) {
-                console.error('載入日曆失敗:', e);
-            }
-        }
-
-        function renderCalendar(calendarData) {
-            const grid = document.getElementById('calendar-grid');
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const daysInPrevMonth = new Date(year, month, 0).getDate();
-            
-            const days = ['日', '一', '二', '三', '四', '五', '六'];
-            
-            let html = days.map(d => `
-                <div class="calendar-day-header">${d}</div>
-            `).join('');
-            
-            // 上個月的日期
-            for (let i = firstDay - 1; i >= 0; i--) {
-                const day = daysInPrevMonth - i;
-                html += `
-                    <div class="calendar-day other-month">
-                        <div class="day-number">${day}</div>
-                    </div>
-                `;
-            }
-            
-            // 當月日期
-            const today = new Date();
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
-                const hasData = calendarData[dateStr] && calendarData[dateStr].length > 0;
-                const count = hasData ? calendarData[dateStr].length : 0;
-                
-                html += `
-                    <div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}" 
-                         onclick="showDayDetails('${dateStr}')">
-                        <div class="day-number">${day}</div>
-                        ${hasData ? `<div class="day-count">${count}</div>` : ''}
-                    </div>
-                `;
-            }
-            
-            // 下個月的日期
-            const remainingCells = (7 - ((firstDay + daysInMonth) % 7)) % 7;
-            for (let day = 1; day <= remainingCells; day++) {
-                html += `
-                    <div class="calendar-day other-month">
-                        <div class="day-number">${day}</div>
-                    </div>
-                `;
-            }
-            
-            grid.innerHTML = html;
-        }
-
-        function changeMonth(delta) {
-            currentDate.setMonth(currentDate.getMonth() + delta);
-            loadCalendar();
-        }
-
-        function goToToday() {
-            currentDate = new Date();
-            loadCalendar();
-        }
-
-        // Modal 功能
-        function showDayDetails(dateStr) {
-            // 這裡可以實作顯示當天判決書的詳細資訊
-            document.getElementById('modal-title').textContent = `${dateStr} 的判決書`;
-            document.getElementById('modal-body').innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-file-alt"></i>
-                    <p>正在載入當日判決書... (待實作)</p>
-                </div>
-            `;
-            document.getElementById('modal').classList.add('active');
-        }
-
-        function closeModal() {
-            document.getElementById('modal').classList.remove('active');
-        }
-
-        // 時間線功能
-        async function loadTimeline() {
-            try {
-                const response = await fetch('/api/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
-                });
-                const data = await response.json();
-                allPDFs = data.pdfs || [];
-                
-                // 按日期排序
-                allPDFs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-                
-                renderTimeline();
-            } catch (e) {
-                console.error('載入時間線失敗:', e);
-            }
-        }
-
-        function renderTimeline() {
-            const container = document.getElementById('timeline-container');
-            
-            if (allPDFs.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-inbox"></i>
-                        <h3>暫無數據</h3>
-                        <p>請先點擊「更新數據」爬取判決書</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // 按日期分組
-            const grouped = {};
-            allPDFs.forEach(pdf => {
-                const date = pdf.date || '未知日期';
-                if (!grouped[date]) grouped[date] = [];
-                grouped[date].push(pdf);
-            });
-            
-            container.innerHTML = Object.entries(grouped).map(([date, pdfs]) => `
-                <div class="timeline-item">
-                    <div class="timeline-date">
-                        <i class="fas fa-calendar"></i>
-                        ${date}
-                        <span style="color: var(--gray-400);">(${pdfs.length} 份)</span>
-                    </div>
-                    <div class="timeline-content">
-                        ${pdfs.map(pdf => renderPDFItem(pdf)).join('')}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderPDFItem(pdf) {
-            const courtNames = {
-                'final': '終審法院',
-                'intermediate': '中級法院',
-                'primary': '初級法院'
-            };
-            
-            return `
-                <div class="pdf-item">
-                    <input type="checkbox" class="pdf-checkbox" 
-                           ${selectedPDFs.has(pdf.url) ? 'checked' : ''}
-                           onchange="togglePDF('${pdf.url}')">
-                    <div class="pdf-icon">
-                        <i class="fas fa-file-pdf"></i>
-                    </div>
-                    <div class="pdf-info">
-                        <div class="pdf-title" title="${pdf.title || pdf.filename}">
-                            ${pdf.title || pdf.filename}
-                        </div>
-                        <div class="pdf-meta">
-                            <span><i class="fas fa-landmark"></i> ${courtNames[pdf.court] || pdf.court}</span>
-                            <span><i class="fas fa-calendar"></i> ${pdf.date || '未知'}</span>
-                        </div>
-                    </div>
-                    <div class="pdf-actions">
-                        <button class="btn-icon" onclick="previewPDF('${pdf.url}')" title="預覽">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn-icon" onclick="downloadSingle('${pdf.url}', '${pdf.filename}')" title="下載">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function togglePDF(url) {
-            if (selectedPDFs.has(url)) {
-                selectedPDFs.delete(url);
-            } else {
-                selectedPDFs.add(url);
-            }
-        }
-
-        // 瀏覽功能
-        async function loadBrowse() {
-            const yearSelect = document.getElementById('browse-year');
-            
-            // 填充年份選項
-            const years = Object.keys(stats.by_year || {}).sort().reverse();
-            yearSelect.innerHTML = `
-                <option value="">全部年份</option>
-                ${years.map(y => `<option value="${y}">${y}年</option>`).join('')}
-            `;
-            
-            loadYearData();
-        }
-
-        async function loadYearData() {
-            const year = document.getElementById('browse-year').value;
-            const container = document.getElementById('browse-content');
-            
-            try {
-                const response = await fetch('/api/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ year_from: year, year_to: year })
-                });
-                const data = await response.json();
-                const pdfs = data.pdfs || [];
-                
-                // 按月分組
-                const byMonth = {};
-                pdfs.forEach(pdf => {
-                    const month = pdf.month || 'unknown';
-                    if (!byMonth[month]) byMonth[month] = [];
-                    byMonth[month].push(pdf);
-                });
-                
-                container.innerHTML = Object.entries(byMonth).map(([month, monthPdfs]) => {
-                    const monthName = month === 'unknown' ? '未知月份' : `${month}月`;
-                    return `
-                        <div class="browser-card" onclick="showMonthDetails('${year}', '${month}')">
-                            <div class="browser-header">
-                                <div class="browser-title">${monthName}</div>
-                                <div class="browser-subtitle">${monthPdfs.length} 份判決書</div>
-                            </div>
-                            <div class="browser-body">
-                                <div class="browser-stat">
-                                    <span>終審法院</span>
-                                    <span>${monthPdfs.filter(p => p.court === 'final').length}</span>
-                                </div>
-                                <div class="browser-stat">
-                                    <span>中級法院</span>
-                                    <span>${monthPdfs.filter(p => p.court === 'intermediate').length}</span>
-                                </div>
-                                <div class="browser-stat">
-                                    <span>初級法院</span>
-                                    <span>${monthPdfs.filter(p => p.court === 'primary').length}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-            } catch (e) {
-                console.error('載入瀏覽數據失敗:', e);
-            }
-        }
-
-        // 搜尋功能
-        async function performSearch() {
-            const keyword = document.getElementById('search-keyword').value;
-            const court = document.getElementById('search-court').value;
-            const yearFrom = document.getElementById('search-year-from').value;
-            const yearTo = document.getElementById('search-year-to').value;
-            
-            const container = document.getElementById('search-results');
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>搜尋中...</p></div>';
-            
-            try {
-                const response = await fetch('/api/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        keyword,
-                        court,
-                        year_from: yearFrom,
-                        year_to: yearTo
-                    })
-                });
-                const data = await response.json();
-                const pdfs = data.pdfs || [];
-                
-                if (pdfs.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-search"></i>
-                            <h3>找不到結果</h3>
-                            <p>請嘗試其他關鍵字或條件</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                container.innerHTML = `
-                    <div style="margin-bottom: 1rem; color: var(--gray-500);">
-                        找到 ${pdfs.length} 個結果
-                    </div>
-                    <div class="pdf-list">
-                        ${pdfs.map(pdf => renderPDFItem(pdf)).join('')}
-                    </div>
-                `;
-                
-            } catch (e) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>搜尋失敗</h3>
-                        <p>${e.message}</p>
-                    </div>
-                `;
-            }
-        }
-
-        function clearSearch() {
-            document.getElementById('search-keyword').value = '';
-            document.getElementById('search-court').value = '';
-            document.getElementById('search-year-from').value = '';
-            document.getElementById('search-year-to').value = '';
-            document.getElementById('search-results').innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-search"></i>
-                    <h3>輸入條件開始搜尋</h3>
-                </div>
-            `;
-        }
-
-        // 下載功能
-        async function downloadSelected() {
-            if (selectedPDFs.size === 0) {
-                alert('請先選擇要下載的項目');
-                return;
-            }
-            
-            const pdfsToDownload = allPDFs.filter(pdf => selectedPDFs.has(pdf.url));
-            const uploadToGDrive = document.getElementById('upload-gdrive').checked;
-            const delay = parseInt(document.getElementById('download-delay').value) || 3;
-            
-            // 顯示進度區域
-            document.getElementById('download-progress').style.display = 'block';
-            
-            try {
-                const response = await fetch('/api/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        pdfs: pdfsToDownload,
-                        upload_to_gdrive: uploadToGDrive,
-                        delay: delay
-                    })
-                });
-                
-                if (response.ok) {
-                    pollDownloadStatus();
-                } else {
-                    const data = await response.json();
-                    alert(data.error || '開始下載失敗');
-                }
-            } catch (e) {
-                alert('下載錯誤: ' + e.message);
-            }
-        }
-
-        async function pollDownloadStatus() {
-            const poll = async () => {
-                try {
-                    const [statusRes, logsRes] = await Promise.all([
-                        fetch('/api/status'),
-                        fetch('/api/logs')
-                    ]);
-                    
-                    const status = await statusRes.json();
-                    const logs = await logsRes.json();
-                    
-                    // 更新進度
-                    const percent = status.total > 0 
-                        ? Math.round((status.current / status.total) * 100) 
-                        : 0;
-                    
-                    document.getElementById('progress-fill').style.width = percent + '%';
-                    document.getElementById('progress-current').textContent = status.current;
-                    document.getElementById('progress-total').textContent = status.total;
-                    document.getElementById('progress-percent').textContent = percent + '%';
-                    document.getElementById('download-message').textContent = status.message;
-                    
-                    // 更新日誌
-                    document.getElementById('download-logs').textContent = logs.logs.join('\n');
-                    
-                    if (status.running) {
-                        setTimeout(poll, 1000);
-                    } else {
-                        alert('下載完成！');
-                    }
-                } catch (e) {
-                    console.error('輪詢狀態失敗:', e);
-                }
-            };
-            
-            poll();
-        }
-
-        async function stopDownload() {
-            await fetch('/api/stop', { method: 'POST' });
-        }
-
-        function downloadSingle(url, filename) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.target = '_blank';
-            a.click();
-        }
-
-        function previewPDF(url) {
-            window.open(url, '_blank');
-        }
-
-        // 其他功能
-        async function crawlData() {
-            if (!confirm('這會重新爬取法院網站的數據，可能需要一些時間。繼續？')) {
-                return;
-            }
-            
-            const btn = document.querySelector('button[onclick="crawlData()"]');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 更新中...';
-            btn.disabled = true;
-            
-            try {
-                await fetch('/api/crawl', { method: 'POST' });
-                alert('爬蟲已啟動，請稍後刷新頁面查看結果');
-            } catch (e) {
-                alert('啟動爬蟲失敗: ' + e.message);
-            } finally {
-                btn.innerHTML = '<i class="fas fa-sync"></i> 更新數據';
-                btn.disabled = false;
-            }
-        }
-
-        async function exportData() {
-            try {
-                const response = await fetch('/api/export');
-                const data = await response.json();
-                
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `court-judgments-${new Date().toISOString().slice(0,10)}.json`;
-                a.click();
-            } catch (e) {
-                alert('匯出失敗: ' + e.message);
-            }
-        }
-
-        // 點擊 modal 外部關閉
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target.id === 'modal') closeModal();
         });
+
+        document.getElementById("export-button").addEventListener("click", () => {
+            if (!currentAnalysis) return;
+            window.location.href = `/api/export/${currentAnalysis.id}.md`;
+        });
+
+        document.getElementById("chat-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            await askQuestion();
+        });
+
+        function focusAnalyzer() {
+            document.getElementById("url").focus();
+            document.getElementById("analyze").scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        async function analyzeForm() {
+            setStatus("Analyzing media... <span class=\"loader\"></span>");
+            const data = new FormData(form);
+
+            try {
+                const response = await fetch("/api/analyze", {
+                    method: "POST",
+                    body: data
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Analyze failed with HTTP ${response.status}`);
+                }
+
+                const analysis = await response.json();
+                renderAnalysis(analysis);
+                setStatus("Knowledge pack generated.");
+            } catch (error) {
+                console.error(error);
+                setStatus(`Error: ${escapeHtml(error.message)}`);
+            }
+        }
+
+        async function loadDemo() {
+            setStatus("Loading sample result... <span class=\"loader\"></span>");
+            try {
+                const response = await fetch("/api/demo");
+                const analysis = await response.json();
+                renderAnalysis(analysis);
+                setStatus("Sample loaded.");
+            } catch (error) {
+                setStatus(`Error: ${escapeHtml(error.message)}`);
+            }
+        }
+
+        async function askQuestion() {
+            if (!currentAnalysis) return;
+            const input = document.getElementById("chat-question");
+            const question = input.value.trim();
+            if (!question) return;
+
+            appendChat("user", question);
+            input.value = "";
+
+            try {
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: currentAnalysis.id, question })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || "Chat failed");
+                }
+                let answer = data.answer;
+                if (data.citations && data.citations.length) {
+                    answer += "\n\nCitations:\n" + data.citations.map((item) => `- ${item.time}: ${item.text}`).join("\n");
+                }
+                appendChat("assistant", answer);
+            } catch (error) {
+                appendChat("assistant", `Error: ${error.message}`);
+            }
+        }
+
+        function renderAnalysis(analysis) {
+            currentAnalysis = analysis;
+            workspace.classList.add("active");
+
+            document.getElementById("summary-title").textContent = analysis.title;
+            document.getElementById("meta-platform").textContent = analysis.platform;
+            document.getElementById("meta-duration").textContent = analysis.duration;
+            document.getElementById("meta-source").textContent = analysis.url || "Local / pasted text";
+            document.getElementById("overview").textContent = analysis.overview;
+
+            document.getElementById("keywords").innerHTML = (analysis.keywords || [])
+                .map((keyword) => `<span class="pill">${escapeHtml(keyword)}</span>`)
+                .join("");
+
+            document.getElementById("source-note").innerHTML = analysis.source_note
+                ? `<div class="note">${escapeHtml(analysis.source_note)}</div>`
+                : "";
+
+            document.getElementById("takeaways").innerHTML = (analysis.takeaways || [])
+                .map((item, index) => `<div class="takeaway"><b>${index + 1}.</b> ${escapeHtml(item)}</div>`)
+                .join("");
+
+            document.getElementById("chapter-list").innerHTML = (analysis.chapters || [])
+                .map((chapter) => `
+                    <article class="chapter">
+                        <div class="time">${escapeHtml(chapter.time)}</div>
+                        <div>
+                            <b>${escapeHtml(chapter.title)}</b>
+                            <span class="muted">${escapeHtml(chapter.summary)}</span>
+                        </div>
+                    </article>
+                `)
+                .join("");
+
+            document.getElementById("transcript-list").innerHTML = (analysis.transcript || [])
+                .map((segment) => `
+                    <article class="segment">
+                        <div class="time">${escapeHtml(segment.time)}</div>
+                        <div>
+                            <b>${escapeHtml(segment.speaker)}</b>
+                            <span class="muted">${escapeHtml(segment.text)}</span>
+                        </div>
+                    </article>
+                `)
+                .join("");
+
+            renderMindMap(analysis.mind_map);
+            renderContentCards(analysis.content_cards || []);
+            resetChat();
+            workspace.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function renderMindMap(map) {
+            if (!map) {
+                document.getElementById("mindmap").innerHTML = "<div class=\"empty\">No mind map available.</div>";
+                return;
+            }
+
+            const branches = (map.branches || []).map((branch) => `
+                <div class="branch">
+                    <div class="node">${escapeHtml(branch.label)}</div>
+                    ${(branch.children || []).map((child) => `<div class="leaf">${escapeHtml(child)}</div>`).join("")}
+                </div>
+            `).join("");
+
+            document.getElementById("mindmap").innerHTML = `
+                <div class="map-root">
+                    <div class="node">${escapeHtml(map.root)}</div>
+                    ${branches}
+                </div>
+            `;
+        }
+
+        function renderContentCards(cards) {
+            document.getElementById("content-cards").innerHTML = cards.length
+                ? cards.map((card) => `
+                    <article class="content-card">
+                        <b>${escapeHtml(card.type)}</b>
+                        <pre>${escapeHtml(card.content)}</pre>
+                    </article>
+                `).join("")
+                : "<div class=\"empty\">No drafts generated.</div>";
+        }
+
+        function appendChat(role, text) {
+            const log = document.getElementById("chat-log");
+            if (log.querySelector(".empty")) {
+                log.innerHTML = "";
+            }
+            const item = document.createElement("div");
+            item.className = `chat-message ${role}`;
+            item.textContent = text;
+            log.appendChild(item);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function resetChat() {
+            document.getElementById("chat-log").innerHTML = `
+                <div class="chat-message assistant">
+                    Ask me about "${escapeHtml(currentAnalysis.title)}". I can answer using the generated summary, chapters, and transcript snippets.
+                </div>
+            `;
+        }
+
+        function setStatus(html) {
+            statusEl.innerHTML = html;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
     </script>
 </body>
 </html>
