@@ -36,6 +36,7 @@ token.json
 # 快取
 *.cache
 judgments_cache.json
+analysis_cache/
 
 # 下載的檔案
 downloads/*.pdf

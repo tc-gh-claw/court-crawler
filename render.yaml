@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: court-crawler
+    name: mediamind
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -8,15 +8,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.4
-      - key: BASE_FOLDER_NAME
-        value: 澳門法院判決書
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_REFRESH_TOKEN
-        sync: false
     disk:
-      name: downloads
-      mountPath: /opt/render/project/src/downloads
+      name: analysis-cache
+      mountPath: /opt/render/project/src/analysis_cache
       sizeGB: 1
